@@ -446,7 +446,7 @@ const shortsHtml = `
             await initShortsPlayer();
             loader.classList.add('fade');
             swipeHint.classList.add('show');
-            setTimeout(() => { swipeHint.classList.remove('show'); }, 1500);
+            setTimeout(() => { swipeHint.classList.remove('show'); }, 300);
         };
 
         function toggleComments() { commentsPanel.classList.toggle('open'); }
