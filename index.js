@@ -1516,6 +1516,15 @@ app.get("/classroom.512", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "img/classroom.512.png"));
 });
 
+
+app.get("/manifest.json", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "manifest.json"));
+});
+
+app.get("/sw.js", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "sw.js"));
+});
+
 app.get("/api/channel", async (req, res) => {
   const channelName = req.query.name || req.query.id;
   const page = parseInt(req.query.page) || 0;
