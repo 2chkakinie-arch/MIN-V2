@@ -1,0 +1,3020 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MIN-Tube-Pro</title>
+  <!-- PWA -->
+<link rel="manifest" href="/manifest.json" />
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #212121;
+      --card: #272727;
+      --text: #f1f1f1;
+      --text-muted: #aaaaaa;
+      --text-secondary: #717171;
+      --accent: #f1f1f1
+      --border: #3f3f3f;
+      --chip-bg: #272727;
+      --chip-active-bg: #f1f1f1;
+      --chip-active-text: #0f0f0f;
+      --header-height: 56px;
+      --chips-height: 52px;
+      --sidebar-width: 240px;
+      --sidebar-collapsed: 72px;
+    }
+    body.light-mode {
+      --bg: #ffffff;
+      --surface: #f2f2f2;
+      --card: #e5e5e5;
+      --text: #0f0f0f;
+      --text-muted: #606060;
+      --text-secondary: #909090;
+      --border: #e0e0e0;
+      --chip-bg: #f2f2f2;
+      --chip-active-bg: #0f0f0f;
+      --chip-active-text: #ffffff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Roboto', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--header-height);
+      background: var(--bg);
+      display: flex; align-items: center;
+      padding: 0 16px;
+      z-index: 1000;
+      gap: 8px;
+    }
+
+    .header-left { display: flex; align-items: center; gap: 16px; min-width: 200px; }
+
+    .menu-btn {
+      background: none; border: none; color: var(--text);
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 20px; flex-shrink: 0;
+      transition: background 0.1s;
+    }
+    .menu-btn:hover { background: rgba(255,255,255,0.1); }
+    body.light-mode .menu-btn:hover { background: rgba(0,0,0,0.06); }
+
+    .logo {
+      display: flex; align-items: center; gap: 2px;
+      text-decoration: none; color: var(--text);
+    }
+    .logo-icon {
+      background: var(--accent);
+      border-radius: 6px;
+      width: 34px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-icon svg { width: 16px; height: 16px; fill: white; }
+    .logo-text {
+      font-size: 18px; font-weight: 700; letter-spacing: -0.5px;
+      margin-left: 4px; white-space: nowrap;
+    }
+    .logo-sub { font-size: 10px; color: var(--text-muted); font-weight: 500; margin-left: 1px; align-self: flex-end; margin-bottom: 4px; }
+
+    /* Search */
+    .header-center {
+      flex: 1; display: flex; align-items: center;
+      justify-content: center; gap: 8px; max-width: 728px; margin: 0 auto;
+      position: relative;
+    }
+    .search-form {
+      display: flex; flex: 1; align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 0;
+      overflow: hidden;
+      height: 40px;
+    }
+    .search-form:focus-within { border-color: #1c62b9; }
+    body.light-mode .search-form:focus-within { border-color: #1a73e8; }
+    .search-form input {
+      flex: 1; background: var(--bg); border: none;
+      color: var(--text); height: 100%; padding: 0 16px;
+      outline: none; font-size: 16px; font-family: 'Roboto', Arial, sans-serif;
+    }
+    body.light-mode .search-form { background: #fff; }
+    body.light-mode .search-form input { background: #fff; }
+    .search-btn {
+      background: var(--surface); border: none; border-left: 1px solid var(--border);
+      color: var(--text-muted); width: 64px; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 18px; flex-shrink: 0;
+      transition: background 0.1s;
+    }
+    .search-btn:hover { background: #3f3f3f; }
+    body.light-mode .search-btn { background: #f8f8f8; }
+    body.light-mode .search-btn:hover { background: #e0e0e0; }
+    .mic-btn {
+      background: var(--surface); border: none; border-radius: 50%;
+      color: var(--text); width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 18px; flex-shrink: 0;
+      transition: background 0.1s;
+    }
+    .mic-btn:hover { background: #3f3f3f; }
+
+    /* Autocomplete Dropdown */
+    .autocomplete-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 2500;
+      display: none;
+      padding: 16px 0;
+      flex-direction: column;
+    }
+    .autocomplete-dropdown.show { display: flex; }
+    body.light-mode .autocomplete-dropdown { background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .autocomplete-item {
+      padding: 4px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 500;
+      min-height: 32px;
+    }
+    .autocomplete-item:hover, .autocomplete-item.selected {
+      background: rgba(255,255,255,0.1);
+    }
+    body.light-mode .autocomplete-item:hover, body.light-mode .autocomplete-item.selected {
+      background: rgba(0,0,0,0.05);
+    }
+    .autocomplete-icon {
+      width: 20px; height: 20px;
+      fill: var(--text);
+      opacity: 0.6;
+    }
+
+    /* Thumbnail Help Button */
+    .thumb-help-btn {
+      font-size: 12px;
+      color: var(--accent);
+      text-decoration: underline;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: 'Roboto', Arial, sans-serif;
+    }
+
+    /* Header right */
+    .header-right {
+      display: flex; align-items: center; gap: 4px;
+      margin-left: auto; flex-shrink: 0;
+    }
+    .icon-btn {
+      background: none; border: none; color: var(--text);
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 20px; position: relative;
+      transition: background 0.1s;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,0.1); }
+    body.light-mode .icon-btn:hover { background: rgba(0,0,0,0.06); }
+
+    /* Settings panel */
+    .settings-wrapper { position: relative; }
+    .settings-panel {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 0;
+      min-width: 220px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      z-index: 2000;
+      display: none;
+      flex-direction: column;
+    }
+    .settings-panel.open { display: flex; }
+    .settings-panel-title {
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 8px 16px 4px;
+    }
+    .theme-radio-label {
+      display: flex; align-items: center; gap: 12px;
+      cursor: pointer; font-size: 14px; color: var(--text);
+      padding: 10px 16px; transition: background 0.1s;
+    }
+    .theme-radio-label:hover { background: rgba(255,255,255,0.08); }
+    body.light-mode .theme-radio-label:hover { background: rgba(0,0,0,0.05); }
+    .theme-radio-label input { accent-color: var(--accent); width: 16px; height: 16px; }
+    .theme-radio-label.selected { background: rgba(255,255,255,0.06); }
+    body.light-mode .theme-radio-label.selected { background: rgba(0,0,0,0.04); }
+    .settings-divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+    .settings-select-group { padding: 8px 16px; display: flex; flex-direction: column; gap: 6px; }
+    .settings-select-label { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase; }
+    .settings-select {
+      background: var(--bg); color: var(--text); border: 1px solid var(--border);
+      border-radius: 4px; padding: 6px 8px; font-size: 13px; cursor: pointer; outline: none;
+      appearance: none; width: 100%;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center; padding-right: 24px;
+    }
+    .playback-hint { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+
+    /* ===== SIDEBAR ===== */
+    .layout { display: flex; padding-top: var(--header-height); }
+
+    .sidebar {
+      position: fixed; top: var(--header-height); left: 0;
+      width: var(--sidebar-collapsed);
+      height: calc(100vh - var(--header-height));
+      overflow-y: auto; overflow-x: hidden;
+      display: flex; flex-direction: column;
+      padding: 12px 0;
+      z-index: 100;
+      scrollbar-width: none;
+      transition: width 0.2s ease;
+    }
+    .sidebar::-webkit-scrollbar { display: none; }
+    .sidebar.expanded { width: var(--sidebar-width); }
+
+    .sidebar-item {
+      display: flex; align-items: center; gap: 16px;
+      padding: 0 12px; height: 40px; min-height: 40px;
+      border-radius: 10px; cursor: pointer;
+      color: var(--text); text-decoration: none;
+      font-size: 14px; font-weight: 400;
+      transition: background 0.1s;
+      white-space: nowrap; overflow: hidden;
+      margin: 0 4px;
+    }
+    .sidebar-item:hover { background: rgba(255,255,255,0.1); }
+    body.light-mode .sidebar-item:hover { background: rgba(0,0,0,0.06); }
+    .sidebar-item.active { background: rgba(255,255,255,0.12); font-weight: 500; }
+    body.light-mode .sidebar-item.active { background: rgba(0,0,0,0.08); }
+    .sidebar-item svg { flex-shrink: 0; width: 24px; height: 24px; }
+    .sidebar-label { opacity: 0; transition: opacity 0.15s; }
+    .sidebar.expanded .sidebar-label { opacity: 1; }
+
+    .sidebar-section-title {
+      font-size: 14px; font-weight: 700; color: var(--text);
+      padding: 16px 12px 4px; white-space: nowrap; overflow: hidden;
+      opacity: 0; height: 0; margin: 0;
+      transition: opacity 0.15s;
+    }
+    .sidebar.expanded .sidebar-section-title { opacity: 1; height: auto; }
+    .sidebar-divider { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+    /* ===== MAIN CONTENT ===== */
+    .main {
+      margin-left: var(--sidebar-collapsed);
+      flex: 1; min-width: 0;
+      transition: margin-left 0.2s ease;
+    }
+    .sidebar.expanded ~ .main { margin-left: var(--sidebar-width); }
+
+    /* Chips bar */
+    .chips-bar {
+      position: sticky; top: var(--header-height);
+      background: var(--bg);
+      padding: 12px 24px;
+      display: flex; gap: 8px; overflow-x: auto;
+      scrollbar-width: none; z-index: 99;
+      border-bottom: 1px solid transparent;
+    }
+    .chips-bar::-webkit-scrollbar { display: none; }
+    .chip {
+      background: var(--chip-bg); border: none;
+      color: var(--text); padding: 0 12px;
+      height: 32px; border-radius: 8px;
+      font-size: 14px; font-weight: 500;
+      white-space: nowrap; cursor: pointer;
+      transition: background 0.1s;
+      font-family: 'Roboto', Arial, sans-serif;
+    }
+    .chip:hover { background: #3f3f3f; }
+    body.light-mode .chip:hover { background: #d0d0d0; }
+    .chip.active {
+      background: var(--chip-active-bg);
+      color: var(--chip-active-text);
+    }
+
+    /* ===== CONTENT AREA ===== */
+    .content-area { padding: 16px 24px 80px; }
+
+    /* Shorts section */
+    .shorts-section { margin-bottom: 28px; }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+    }
+    .shorts-badge {
+      background: var(--accent); color: white;
+      font-size: 12px; font-weight: 700;
+      padding: 2px 6px; border-radius: 4px;
+    }
+    .shorts-row {
+      display: flex; gap: 8px; overflow-x: auto;
+      scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+      padding-bottom: 4px;
+    }
+    .shorts-row::-webkit-scrollbar { height: 4px; }
+    .shorts-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .short-card {
+      min-width: 160px; max-width: 168px;
+      border-radius: 12px; overflow: hidden;
+      cursor: pointer; text-decoration: none; color: inherit;
+      display: flex; flex-direction: column;
+      flex-shrink: 0;
+      transition: transform 0.2s;
+      position: relative;
+    }
+    .short-card:hover { transform: scale(1.02); }
+    .short-thumb {
+      width: 100%; aspect-ratio: 9/16;
+      background: #1a1a1a; overflow: hidden; position: relative;
+      border-radius: 12px;
+    }
+    .short-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .short-overlay {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 24px 10px 10px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.75));
+    }
+    .short-title { font-size: 13px; font-weight: 600; line-height: 1.3; color: #fff; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .short-views { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .shorts-toggle-btn {
+      background: none; border: 1px solid var(--border);
+      color: var(--text); padding: 6px 16px; border-radius: 18px;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      font-family: 'Roboto', Arial, sans-serif;
+      display: flex; align-items: center; gap: 6px;
+      transition: background 0.1s;
+    }
+    .shorts-toggle-btn:hover { background: rgba(255,255,255,0.08); }
+    body.light-mode .shorts-toggle-btn:hover { background: rgba(0,0,0,0.06); }
+
+    /* Video grid - YouTube-style */
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px 16px;
+      row-gap: 40px;
+    }
+    .video-card {
+      cursor: pointer; text-decoration: none; color: inherit;
+      display: flex; flex-direction: column;
+    }
+    .thumb {
+      width: 100%; aspect-ratio: 16/9;
+      background: #1a1a1a; border-radius: 12px;
+      overflow: hidden; position: relative;
+      margin-bottom: 12px;
+    }
+    .thumb img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: border-radius 0.2s;
+    }
+    .video-card:hover .thumb img { border-radius: 0; }
+
+    /* Duration badge */
+    .duration-badge {
+      position: absolute; bottom: 6px; right: 6px;
+      background: rgba(0,0,0,0.85); color: #fff;
+      font-size: 12px; font-weight: 700; padding: 2px 5px;
+      border-radius: 4px; letter-spacing: 0.3px;
+    }
+
+    .meta { display: flex; gap: 12px; align-items: flex-start; }
+    .channel-avatar, a.channel-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, #444 0%, #222 100%);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); font-weight: 700; font-size: 14px;
+      overflow: hidden; position: relative;
+    }
+    .channel-avatar img {
+      width: 100%; height: 100%; object-fit: cover;
+      position: absolute; top: 0; left: 0;
+      border-radius: 50%; display: none;
+    }
+    .channel-avatar img.loaded { display: block; }
+    .channel-avatar .avatar-initial { position: relative; z-index: 1; }
+    .details { flex: 1; min-width: 0; }
+    .details h3 {
+      font-size: 14px; line-height: 1.4; font-weight: 500;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden; color: var(--text); margin-bottom: 4px;
+    }
+    .details .channel-name { font-size: 13px; color: var(--text-muted); margin-bottom: 2px; }
+    .details .video-stats { font-size: 13px; color: var(--text-muted); }
+
+    /* Three-dot menu on card */
+    .card-menu-btn {
+      background: none; border: none; color: var(--text-muted);
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 18px; flex-shrink: 0;
+      opacity: 0; transition: opacity 0.15s, background 0.1s;
+      margin-top: -2px;
+    }
+    .meta:hover .card-menu-btn { opacity: 1; }
+    .card-menu-btn:hover { background: rgba(255,255,255,0.1); }
+
+    /* Loading / Empty */
+    #loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
+    .empty { text-align: center; color: var(--text-muted); padding: 40px; font-size: 14px; }
+
+    /* Version badge */
+    .version-badge {
+      font-size: 10px; font-weight: 700; color: var(--text-muted);
+      opacity: 0; transition: opacity 0.8s;
+      white-space: nowrap; pointer-events: none;
+    }
+    .version-badge.show { opacity: 1; }
+    .version-badge-text { color: var(--text-muted); }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+      .video-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+    }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0 !important; }
+      .header-center { max-width: none; }
+      .video-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; row-gap: 28px; }
+      .content-area { padding: 12px 16px 80px; }
+      .chips-bar { padding: 10px 16px; }
+    }
+    @media (max-width: 500px) {
+      .logo-text { display: none; }
+      .video-grid { grid-template-columns: 1fr 1fr; gap: 8px; row-gap: 20px; }
+      .short-card { min-width: 130px; }
+    }
+
+    /* ===== LIBRARY DRAWER ===== */
+    .drawer-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 1500;
+    }
+    .drawer-overlay.open { display: block; }
+    .drawer {
+      position: fixed; top: 0; right: -420px; width: 400px; max-width: 95vw;
+      height: 100vh; background: var(--surface); z-index: 1600;
+      display: flex; flex-direction: column;
+      transition: right 0.28s cubic-bezier(0.4,0,0.2,1);
+      box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+    }
+    .drawer.open { right: 0; }
+    .drawer-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .drawer-title { font-size: 17px; font-weight: 700; flex: 1; color: var(--text); }
+    .drawer-close {
+      background: none; border: none; color: var(--text-muted);
+      width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; transition: background 0.1s;
+    }
+    .drawer-close:hover { background: rgba(255,255,255,0.1); }
+    body.light-mode .drawer-close:hover { background: rgba(0,0,0,0.06); }
+    .drawer-body { flex: 1; overflow-y: auto; padding: 12px 16px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    .drawer-body::-webkit-scrollbar { width: 4px; }
+    .drawer-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Library list items */
+    .lib-item {
+      display: flex; gap: 12px; align-items: center;
+      padding: 8px; border-radius: 10px; cursor: pointer;
+      text-decoration: none; color: var(--text);
+      transition: background 0.1s; margin-bottom: 4px;
+    }
+    .lib-item:hover { background: rgba(255,255,255,0.07); }
+    body.light-mode .lib-item:hover { background: rgba(0,0,0,0.05); }
+    .lib-thumb {
+      width: 100px; min-width: 100px; aspect-ratio: 16/9;
+      border-radius: 8px; overflow: hidden; background: #1a1a1a;
+    }
+    .lib-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .lib-info { flex: 1; min-width: 0; }
+    .lib-title {
+      font-size: 13px; font-weight: 500; line-height: 1.4;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden; margin-bottom: 4px;
+    }
+    .lib-meta { font-size: 12px; color: var(--text-muted); }
+    .lib-remove {
+      background: none; border: none; color: var(--text-muted);
+      width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0; transition: background 0.1s, color 0.1s;
+    }
+    .lib-remove:hover { background: rgba(255,80,80,0.15); color: #f44; }
+    .lib-empty { text-align: center; padding: 48px 16px; color: var(--text-muted); font-size: 14px; }
+    .lib-empty svg { display: block; margin: 0 auto 12px; opacity: 0.3; }
+
+    /* Playlist section */
+    .drawer-action-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .btn-create-playlist {
+      flex: 1; background: var(--accent); color: #fff; border: none;
+      padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 6px;
+      justify-content: center; transition: opacity 0.1s;
+    }
+    .btn-create-playlist:hover { opacity: 0.88; }
+    .btn-export-all {
+      background: var(--card); color: var(--text); border: 1px solid var(--border);
+      padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      cursor: pointer; display: flex; align-items: center; gap: 6px;
+      transition: background 0.1s;
+    }
+    .btn-export-all:hover { background: var(--border); }
+    .playlist-card {
+      background: var(--card); border-radius: 12px; padding: 14px;
+      margin-bottom: 10px; cursor: pointer; transition: background 0.1s;
+    }
+    .playlist-card:hover { background: rgba(255,255,255,0.06); }
+    body.light-mode .playlist-card:hover { background: rgba(0,0,0,0.04); }
+    .playlist-card-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+    }
+    .playlist-icon {
+      width: 40px; height: 40px; border-radius: 8px; background: var(--accent);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .playlist-name { font-size: 15px; font-weight: 600; flex: 1; }
+    .playlist-count { font-size: 12px; color: var(--text-muted); }
+    .playlist-card-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-playlist-open {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: 6px; border-radius: 6px; font-size: 13px;
+      cursor: pointer; transition: background 0.1s;
+    }
+    .btn-playlist-open:hover { background: var(--border); }
+    .btn-playlist-export {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-muted); padding: 6px 10px; border-radius: 6px;
+      font-size: 13px; cursor: pointer; transition: background 0.1s;
+    }
+    .btn-playlist-export:hover { background: var(--border); color: var(--text); }
+    .btn-playlist-delete {
+      background: none; border: 1px solid rgba(255,60,60,0.3);
+      color: #f66; padding: 6px 10px; border-radius: 6px;
+      font-size: 13px; cursor: pointer; transition: background 0.1s;
+    }
+    .btn-playlist-delete:hover { background: rgba(255,60,60,0.1); }
+    .drawer-back-btn {
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      display: flex; align-items: center; gap: 6px; font-size: 14px;
+      padding: 4px 0; margin-bottom: 12px; transition: color 0.1s;
+    }
+    .drawer-back-btn:hover { color: var(--text); }
+/* ===== ホームボタン宣伝用スタイル ===== */
+    .promo-container { position: relative; display: flex; align-items: center; }
+
+    .promo-bubble {
+      position: absolute; top: calc(100% + 10px); right: 0;
+      background: #3ea6ff; color: white; padding: 8px 14px;
+      border-radius: 8px; font-size: 12px; font-weight: 700;
+      white-space: nowrap; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      z-index: 2100; opacity: 0; transform: translateY(-10px);
+      transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      pointer-events: none;
+    }
+
+    .promo-bubble::after {
+      content: ""; position: absolute; bottom: 100%; right: 12px;
+      border-width: 8px; border-style: solid;
+      border-color: transparent transparent #3ea6ff transparent;
+    }
+
+    .promo-bubble.show { opacity: 1; transform: translateY(0); }
+
+    @keyframes promo-pulse {
+      0% { box-shadow: 0 0 0 0 rgba(62, 166, 255, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(62, 166, 255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(62, 166, 255, 0); }
+    }
+
+    .home-promo-active {
+      animation: promo-pulse 2s infinite;
+      background: rgba(62, 166, 255, 0.2) !important;
+      border-radius: 50%;
+    }
+    /* Card context menu */
+    .card-dropdown {
+      position: fixed; background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 6px 0; z-index: 2100;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5); min-width: 200px;
+      display: none;
+    }
+    .card-dropdown.open { display: block; }
+    .card-dropdown-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; font-size: 14px; color: var(--text);
+      cursor: pointer; transition: background 0.1s;
+    }
+    .card-dropdown-item:hover { background: rgba(255,255,255,0.08); }
+    body.light-mode .card-dropdown-item:hover { background: rgba(0,0,0,0.05); }
+    .card-dropdown-item svg { width: 20px; height: 20px; fill: var(--text-muted); flex-shrink: 0; }
+
+    /* Playlist picker modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 2200;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--card); border-radius: 14px; padding: 24px;
+      width: 340px; max-width: 90vw; max-height: 80vh;
+      overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    }
+    .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+    .modal-input {
+      width: 100%; background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 14px; font-size: 14px; outline: none;
+      font-family: 'Roboto', Arial, sans-serif; box-sizing: border-box;
+      margin-bottom: 12px;
+    }
+    .modal-input:focus { border-color: #1c62b9; }
+    .modal-btn-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+    .modal-btn {
+      padding: 8px 20px; border-radius: 8px; font-size: 14px;
+      font-weight: 600; cursor: pointer; border: none;
+    }
+    .modal-btn.cancel { background: var(--surface); color: var(--text-muted); }
+    .modal-btn.confirm { background: var(--accent); color: #fff; }
+    .modal-playlist-list { margin-bottom: 16px; }
+    .modal-pl-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 8px; cursor: pointer;
+      transition: background 0.1s; font-size: 14px;
+    }
+    .modal-pl-item:hover { background: rgba(255,255,255,0.07); }
+    body.light-mode .modal-pl-item:hover { background: rgba(0,0,0,0.05); }
+    .modal-pl-icon { width: 32px; height: 32px; border-radius: 6px; background: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .modal-divider { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+    /* Sidebar library items */
+    .sidebar-item.lib-nav { cursor: pointer; }
+    .lib-badge {
+      background: var(--accent); color: #fff; font-size: 10px;
+      font-weight: 700; padding: 1px 5px; border-radius: 8px; margin-left: auto;
+    }
+    .sidebar.expanded .lib-badge { display: inline-block; }
+    .lib-badge { display: none; }
+
+.chips-bar {
+  display: flex;
+  align-items: center; 
+}
+
+.chips-extra-content {
+  margin-left: auto; 
+  padding-left: 16px;
+  flex-shrink: 0; 
+}
+
+.extra-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  background: var(--chip-bg);
+  padding: 4px 12px;
+  border-radius: 8px;
+  transition: background 0.1s;
+  height: 40px; 
+}
+
+.extra-link:hover {
+  background: var(--border);
+}
+
+.extra-img {
+  width: auto;
+  height: 32px; 
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.extra-text {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .extra-text {
+    display: none; 
+  }
+}
+
+    /* ===== MOBILE BOTTOM NAV ===== */
+    .mobile-bottom-nav {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--bg);
+        border-top: 1px solid var(--border);
+        z-index: 1000;
+        height: 56px;
+        padding-bottom: env(safe-area-inset-bottom);
+        justify-content: space-around;
+        align-items: center;
+      }
+      .mobile-nav-item {
+        background: none;
+        border: none;
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        font-size: 10px;
+        flex: 1;
+        height: 100%;
+        cursor: pointer;
+        font-family: 'Roboto', Arial, sans-serif;
+      }
+      .mobile-nav-item svg {
+        width: 24px;
+        height: 24px;
+        fill: currentColor;
+        margin-bottom: 4px;
+      }
+      .mobile-nav-item.active {
+        font-weight: 700;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <button class="menu-btn" id="menuBtn" aria-label="メニュー">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+        </svg>
+      </button>
+      <a href="/" class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 68 48"><path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55c-2.93.78-4.63 3.26-5.42 6.19C.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="#FF0000"/><path d="M45 24 27 14v20" fill="white"/></svg>
+        </div>
+        <span class="logo-text">YouTube</span>
+        <span class="logo-sub">Pro</span>
+      </a>
+    </div>
+
+    <div class="header-center">
+      <form id="searchForm" class="search-form">
+        <input id="searchInput" type="text" placeholder="検索" autocomplete="off" />
+        <button type="submit" class="search-btn">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20.87 20.17l-5.59-5.59C16.35 13.35 17 11.75 17 10c0-3.87-3.13-7-7-7s-7 3.13-7 7 3.13 7 7 7c1.75 0 3.35-.65 4.58-1.71l5.59 5.59.7-.71zM10 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+        </button>
+      </form>
+      <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
+    </div>
+
+    <div class="header-right">
+      <div class="settings-wrapper">
+        <button class="icon-btn" id="settingsBtn" title="設定" aria-label="設定">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        </button>
+        <div class="settings-panel" id="settingsPanel">
+          <div class="settings-panel-title">外観</div>
+          <label class="theme-radio-label" id="darkLabel">
+            <input type="radio" name="themeMode" id="themeDark" value="dark" checked>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+            ダークモード
+          </label>
+          <label class="theme-radio-label" id="lightLabel">
+            <input type="radio" name="themeMode" id="themeLight" value="light">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
+            ライトモード
+          </label>
+          <hr class="settings-divider">
+          <div class="settings-select-group">
+            <div class="settings-select-label">🎬 再生方法</div>
+            <select id="playbackMode" class="settings-select">
+              <option value="googlevideo">Googlevideo（デフォルト）</option>
+              <option value="youtube-nocookie">Youtube-nocookie</option>
+              <option value="DL-Pro">DL-Pro</option>
+              <option value="YoutubeEdu-Kahoot">YoutubeEdu-Kahoot</option>
+              <option value="YoutubeEdu-Scratch">YoutubeEdu-Scratch</option>
+              <option value="Youtube-Pro">Youtube-Pro</option>
+              <option value="Elixir-Network">Elixir-Network</option>
+            </select>
+            <div class="playback-hint" id="playbackHint">Googlevideoのストリームで再生します。</div>
+          </div>
+          <hr class="settings-divider">
+          <div class="settings-select-group">
+            <div class="settings-select-label">🖼️ サムネイルサーバー</div>
+            <select id="thumbServer" class="settings-select">
+              <option value="default">デフォルト (YouTube)</option>
+              <option value="custom">カスタムサーバー (/img/)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="appVersion" class="version-badge"><span class="version-badge-text"></span></div>
+
+        <div class="promo-container">
+        <a href="/youtube-pro" class="icon-btn" id="homePromoBtn" title="ホーム" style="text-decoration:none;">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        </a>
+        <div class="promo-bubble" id="homePromoBubble">その他の機能はコチラから</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" id="sidebar">
+      <a href="/" class="sidebar-item active">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        <span class="sidebar-label">ホーム</span>
+      </a>
+      <a href="#" class="sidebar-item" data-q="shorts">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.77 10.32l-1.2-.5L18 9.06c1.84-.96 2.53-3.23 1.56-5.06s-3.23-2.53-5.06-1.56L6 6.94c-1.29.68-2.07 2.04-2 3.49.07 1.4.93 2.67 2.22 3.25L7.42 14 6 14.75c-1.84.96-2.53 3.23-1.56 5.06.65 1.27 1.94 2 3.31 2 .58 0 1.18-.14 1.75-.44L17 17.06c1.29-.68 2.07-2.04 2-3.49-.07-1.4-.93-2.67-2.23-3.25zM10 14.65V9.35L15 12l-5 2.65z"/></svg>
+        <span class="sidebar-label">ショート</span>
+      </a>
+      <a href="#" class="sidebar-item">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6.5C21 5.12 19.88 4 18.5 4h-13C4.12 4 3 5.12 3 6.5v11C3 18.88 4.12 20 5.5 20h13c1.38 0 2.5-1.12 2.5-2.5v-11zM18.5 6c.28 0 .5.22.5.5V11H5V6.5c0-.28.22-.5.5-.5h13zM5 17.5v-4.5h14v4.5c0 .28-.22.5-.5.5h-13c-.28 0-.5-.22-.5-.5z"/></svg>
+        <span class="sidebar-label">登録チャンネル</span>
+      </a>
+      <hr class="sidebar-divider">
+      <div class="sidebar-section-title">探索</div>
+      <a href="#" class="sidebar-item" data-q="trending">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.53 11.2c-.23-.3-.5-.56-.76-.82-.65-.6-1.4-1.03-2.03-1.66-1.46-1.51-1.79-3.04-1.68-4.55.19-2.61 2.05-4.22 2.08-4.25-.1.09-.76.62-1.33 1.59-.43.73-.6 1.57-.63 2.28-.04.97.12 1.7.33 2.31.32.9.94 1.73 1.39 2.25.48.56 1.08 1.24 1.4 1.99.31.74.28 1.61-.04 2.35-.15.36-.36.7-.62 1.02-.52.61-1.15 1.04-1.75 1.3-.1.04.39-.14.55-.33.18-.2.35-.44.45-.72.08-.22.09-.47.04-.72-.06-.25-.17-.47-.32-.66-.16-.2-.34-.38-.52-.56-.4-.38-.83-.71-1.17-1.13-.64-.78-.89-1.64-.78-2.58.1-.75.41-1.44.85-2.01.46-.59.97-1.07 1.42-1.63.47-.57.77-1.19.77-1.87 0 0 1.39 1.8 1.44 4.39.02.65 0 1.36-.2 2.02-.19.63-.52 1.18-.96 1.57 0 0 1.5-1.13 2.62-2.78.87-1.27 1.25-2.69 1.13-4.11.81.97 1.37 2.15 1.48 3.34.2 2.09-.53 3.89-2 5.25-1.22 1.13-2.81 1.79-4.07 2.94-.51.46-1.02 1.04-1.25 1.7-.27.78-.18 1.65.17 2.36.36.73.95 1.28 1.61 1.6.65.32 1.39.43 2.11.29.71-.14 1.36-.54 1.82-1.09.45-.54.68-1.22.73-1.9.1-1.35-.47-2.63-1.47-3.51z"/></svg>
+        <span class="sidebar-label">急上昇</span>
+      </a>
+      <a href="#" class="sidebar-item" data-q="Music">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+        <span class="sidebar-label">音楽</span>
+      </a>
+      <a href="#" class="sidebar-item" data-q="ゲーム">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5S14.67 12 15.5 12s1.5.67 1.5 1.5S16.33 15 15.5 15zm3-3c-.83 0-1.5-.67-1.5-1.5S17.67 9 18.5 9s1.5.67 1.5 1.5S19.33 12 18.5 12z"/></svg>
+        <span class="sidebar-label">ゲーム</span>
+      </a>
+      <hr class="sidebar-divider">
+      <div class="sidebar-section-title">ライブラリ</div>
+      <a href="#" class="sidebar-item lib-nav" onclick="openDrawer('history'); return false;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 1 0 0 18A9 9 0 0 0 13 3zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7zm.5-11H12v6l5.25 3.15.75-1.23-4.5-2.67V8z"/></svg>
+        <span class="sidebar-label">視聴履歴</span>
+      </a>
+      <a href="#" class="sidebar-item lib-nav" onclick="openDrawer('searchHistory'); return false;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.87 20.17l-5.59-5.59C16.35 13.35 17 11.75 17 10c0-3.87-3.13-7-7-7s-7 3.13-7 7 3.13 7 7 7c1.75 0 3.35-.65 4.58-1.71l5.59 5.59.7-.71zM10 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+        <span class="sidebar-label">検索履歴</span>
+      </a>
+      <a href="#" class="sidebar-item lib-nav" onclick="openDrawer('liked'); return false;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
+        <span class="sidebar-label">高評価した動画</span>
+      </a>
+      <a href="#" class="sidebar-item lib-nav" onclick="openDrawer('playlists'); return false;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+        <span class="sidebar-label">再生リスト</span>
+      </a>
+    </nav>
+
+    <div id="drawerOverlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+    <aside id="libraryDrawer" class="drawer">
+      <div class="drawer-header">
+        <span class="drawer-title" id="drawerTitle">ライブラリ</span>
+        <button class="drawer-close" onclick="closeDrawer()" aria-label="閉じる">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="drawer-body" id="drawerBody"></div>
+    </aside>
+
+    <div id="cardDropdown" class="card-dropdown">
+      <div class="card-dropdown-item" onclick="ddAddLiked()">
+        <svg viewBox="0 0 24 24"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
+        高評価に追加
+      </div>
+      <div class="card-dropdown-item" onclick="ddShowPlaylistPicker()">
+        <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+        再生リストに追加
+      </div>
+    </div>
+
+    <div id="plPickerModal" class="modal-overlay" onclick="if(event.target===this)closePlPicker()">
+      <div class="modal">
+        <div class="modal-title">再生リストに追加</div>
+        <div class="modal-playlist-list" id="plPickerList"></div>
+        <hr class="modal-divider">
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">新しい再生リストを作成</div>
+        <input class="modal-input" id="plPickerInput" type="text" placeholder="再生リスト名" maxlength="40">
+        <div class="modal-btn-row">
+          <button class="modal-btn cancel" onclick="closePlPicker()">キャンセル</button>
+          <button class="modal-btn confirm" onclick="plPickerCreate()">作成して追加</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="createPlModal" class="modal-overlay" onclick="if(event.target===this)closeCreatePl()">
+      <div class="modal">
+        <div class="modal-title">新しい再生リスト</div>
+        <input class="modal-input" id="createPlInput" type="text" placeholder="再生リスト名" maxlength="40">
+        <div class="modal-btn-row">
+          <button class="modal-btn cancel" onclick="closeCreatePl()">キャンセル</button>
+          <button class="modal-btn confirm" onclick="doCreatePlaylist()">作成</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== AI Playlist: Prompt Modal ===== -->
+    <div id="aiPromptModal" class="modal-overlay" onclick="if(event.target===this)closeAiPrompt()">
+      <div class="modal">
+        <div class="ai-modal-header">
+          <div class="ai-modal-logo">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2l2.39 4.84L20 8.27l-4 3.9.94 5.49L12 15.07l-4.94 2.59L8 12.17l-4-3.9 5.61-.43L12 2z"/></svg>
+          </div>
+          <div>
+            <div class="ai-modal-title">MIN-Pro-AI プレイリスト</div>
+            <div style="font-size:11px;color:var(--text-muted);">Powered by Llama 4 Scout</div>
+          </div>
+        </div>
+        <div id="aiPromptSubtext" class="ai-modal-sub"></div>
+
+        <div id="aiModeTabs" class="ai-mode-tabs" style="display:none;">
+          <button class="ai-mode-tab active" data-mode="analyze" type="button">視聴履歴を分析</button>
+          <button class="ai-mode-tab" data-mode="keyword" type="button">キーワードを入力</button>
+        </div>
+
+        <div id="aiKeywordSection">
+          <div class="ai-suggest-row" id="aiSuggestRow">
+            <button class="ai-suggest-chip" data-kw="Music" type="button">Music</button>
+            <button class="ai-suggest-chip" data-kw="EDM" type="button">EDM</button>
+            <button class="ai-suggest-chip" data-kw="J-POP" type="button">J-POP</button>
+            <button class="ai-suggest-chip" data-kw="アニソン" type="button">アニソン</button>
+            <button class="ai-suggest-chip" data-kw="ボカロイド" type="button">ボカロイド</button>
+            <button class="ai-suggest-chip" data-kw="HIKAKIN" type="button">HIKAKIN</button>
+            <button class="ai-suggest-chip" data-kw="ゲーム実況" type="button">ゲーム実況</button>
+            <button class="ai-suggest-chip" data-kw="Minecraft" type="button">Minecraft</button>
+            <button class="ai-suggest-chip" data-kw="Apex" type="button">Apex</button>
+            <button class="ai-suggest-chip" data-kw="テック" type="button">テック</button>
+            <button class="ai-suggest-chip" data-kw="Vlog" type="button">Vlog</button>
+            <button class="ai-suggest-chip" data-kw="映画レビュー" type="button">映画レビュー</button>
+            <button class="ai-suggest-chip" data-kw="スポーツ" type="button">スポーツ</button>
+            <button class="ai-suggest-chip" data-kw="ASMR" type="button">ASMR</button>
+            <button class="ai-suggest-chip" data-kw="してみた" type="button">してみた</button>
+          </div>
+          <input class="modal-input" id="aiPromptInput" type="text" placeholder="あなたの好みの単語を入力（例: EDM ゲーム実況）" maxlength="120" autocomplete="off">
+        </div>
+
+        <div class="modal-btn-row" style="margin-top:14px;">
+          <button class="modal-btn cancel" type="button" onclick="closeAiPrompt()">キャンセル</button>
+          <button class="modal-btn confirm" id="aiPromptGenerateBtn" type="button" style="background:linear-gradient(110deg,#4285F4,#9B72CB,#D96570);">✨ 生成</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== AI Playlist: Gemini-style Loading Overlay ===== -->
+    <div id="aiLoadingOverlay">
+      <div class="ai-loader-stage">
+        <div class="ai-loader-orb"></div>
+        <div class="ai-loader-ring"></div>
+        <div class="ai-loader-ring r2"></div>
+        <div class="ai-loader-particles">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="ai-loader-title" id="aiLoaderTitle">MIN-Pro-AIがプレイリストを生成中</div>
+      <div class="ai-loader-step" id="aiLoaderStep">あなたの好みを分析しています...</div>
+      <div class="ai-loader-progress"><div class="ai-loader-progress-bar" id="aiLoaderBar"></div></div>
+    </div>
+
+    <!-- ===== AI Playlist: Done Modal ===== -->
+    <div id="aiDoneModal" class="modal-overlay" onclick="if(event.target===this)closeAiDone()">
+      <div class="modal">
+        <div class="ai-done-icon">
+          <svg viewBox="0 0 24 24" fill="#9B72CB"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        </div>
+        <div class="ai-done-title">プレイリストが完成しました✨</div>
+        <div class="ai-done-sub" id="aiDoneSub"></div>
+        <div class="ai-done-list" id="aiDoneList"></div>
+        <div class="ai-done-btn-row">
+          <button class="ai-done-btn close" type="button" onclick="closeAiDone()">閉じる</button>
+          <button class="ai-done-btn play" id="aiDonePlayBtn" type="button">▶ 動画を再生</button>
+        </div>
+      </div>
+    </div>
+
+    <main class="main">
+      <div class="chips-bar" id="chipsBar">
+        <button class="chip active" data-q="recommended">すべて</button>
+        <button class="chip" data-q="Music">音楽</button>
+        <button class="chip" data-q="実況">実況</button>
+        <button class="chip" data-q="ゲーム">ゲーム</button>
+        <button class="chip" data-q="エンタメ">エンタメ</button>
+        <button class="chip" data-q="最新テクノロジー">テック</button>
+        <button class="chip chip-ai" id="chipAiPlaylist" type="button" title="MIN-Pro-AIでプレイリストを作成">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align:-3px;margin-right:4px;"><path d="M12 2l2.39 4.84L20 8.27l-4 3.9.94 5.49L12 15.07l-4.94 2.59L8 12.17l-4-3.9 5.61-.43L12 2z"/></svg>
+          AIプレイリスト
+        </button>
+        <div class="chips-extra-content">
+  <a href="/proxy" class="extra-link">
+    <span class="extra-text">新Elixirプロキシを利用</span>
+  </a>
+</div>
+      </div>
+
+      <div class="content-area">
+        <div id="shortsSection" class="shorts-section" style="display:none;">
+          <div class="section-header">
+            <div class="section-title">
+              <span class="shorts-badge">Shorts</span>
+              ショート動画
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button id="thumbHelpBtn" class="thumb-help-btn">サムネが表示されない場合</button>
+              <span style="font-size:12px;color:var(--text-muted);">横スクロールで表示</span>
+              <button id="shortsToggle" class="shorts-toggle-btn" aria-expanded="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+                非表示
+              </button>
+            </div>
+          </div>
+          <div id="shortsRow" class="shorts-row"></div>
+        </div>
+
+        <div id="videoGrid" class="video-grid"></div>
+        <div id="loading" style="display:none;">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--text-muted)" stroke-width="2" style="animation:spin 1s linear infinite;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;">
+            <circle cx="12" cy="12" r="10" stroke-dasharray="30 60" stroke-linecap="round"/>
+          </svg>
+          読み込み中...
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== AI Playlist Chip ===== */
+    .chip-ai {
+      background: linear-gradient(110deg, #4285F4 0%, #9B72CB 35%, #D96570 70%, #F0A858 100%) !important;
+      background-size: 200% 200% !important;
+      color: #fff !important;
+      font-weight: 600 !important;
+      position: relative;
+      animation: aiChipShift 6s ease-in-out infinite;
+      box-shadow: 0 0 0 0 rgba(155,114,203,0.5);
+    }
+    .chip-ai:hover {
+      background: linear-gradient(110deg, #4285F4 0%, #9B72CB 35%, #D96570 70%, #F0A858 100%) !important;
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 18px -4px rgba(155,114,203,0.55);
+    }
+    @keyframes aiChipShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    /* ===== AI Prompt Modal ===== */
+    #aiPromptModal .modal { max-width: 480px; width: 92%; }
+    .ai-modal-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+    }
+    .ai-modal-logo {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: conic-gradient(from 180deg at 50% 50%, #4285F4, #9B72CB, #D96570, #F0A858, #4285F4);
+      display: flex; align-items: center; justify-content: center;
+      animation: aiLogoSpin 6s linear infinite;
+    }
+    .ai-modal-logo svg { filter: drop-shadow(0 0 4px rgba(255,255,255,0.4)); }
+    @keyframes aiLogoSpin { to { transform: rotate(360deg); } }
+    .ai-modal-title {
+      font-size: 18px; font-weight: 700;
+      background: linear-gradient(110deg, #4285F4, #9B72CB, #D96570, #F0A858);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .ai-modal-sub {
+      font-size: 13px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;
+    }
+    .ai-suggest-row {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+    }
+    .ai-suggest-chip {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: 6px 12px; border-radius: 18px;
+      font-size: 12px; cursor: pointer; transition: all 0.15s;
+    }
+    .ai-suggest-chip:hover { background: var(--card); border-color: #9B72CB; }
+    .ai-suggest-chip.picked {
+      background: linear-gradient(110deg, #4285F4, #9B72CB);
+      color: #fff; border-color: transparent;
+    }
+    .ai-mode-tabs {
+      display: flex; gap: 6px; margin-bottom: 14px;
+      background: var(--surface); padding: 4px; border-radius: 10px;
+    }
+    .ai-mode-tab {
+      flex: 1; padding: 8px 10px; border-radius: 7px; border: none;
+      background: transparent; color: var(--text-muted);
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+    }
+    .ai-mode-tab.active {
+      background: linear-gradient(110deg, #4285F4, #9B72CB);
+      color: #fff; box-shadow: 0 2px 8px -2px rgba(155,114,203,0.5);
+    }
+    .ai-mode-tab[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+    /* ===== Gemini-style Loading Overlay ===== */
+    #aiLoadingOverlay {
+      position: fixed; inset: 0; z-index: 5000;
+      background: rgba(0,0,0,0.78);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column;
+    }
+    #aiLoadingOverlay.open { display: flex; }
+    body.light-mode #aiLoadingOverlay { background: rgba(255,255,255,0.85); }
+
+    .ai-loader-stage {
+      width: 220px; height: 220px; position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ai-loader-orb {
+      width: 120px; height: 120px; border-radius: 50%;
+      background: conic-gradient(from 0deg, #4285F4, #9B72CB, #D96570, #F0A858, #4285F4);
+      filter: blur(4px) saturate(1.4);
+      animation: aiOrbSpin 3.5s linear infinite, aiOrbPulse 2.4s ease-in-out infinite;
+      box-shadow: 0 0 60px 10px rgba(155,114,203,0.45),
+                  0 0 120px 20px rgba(66,133,244,0.25);
+    }
+    @keyframes aiOrbSpin { to { transform: rotate(360deg); } }
+    @keyframes aiOrbPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+    }
+    .ai-loader-ring {
+      position: absolute; inset: 10px;
+      border: 2px solid transparent;
+      border-top-color: #4285F4;
+      border-right-color: #D96570;
+      border-radius: 50%;
+      animation: aiOrbSpin 2.2s linear infinite reverse;
+      mix-blend-mode: screen;
+    }
+    .ai-loader-ring.r2 {
+      inset: 30px;
+      border-top-color: #9B72CB;
+      border-right-color: #F0A858;
+      animation-duration: 3s;
+      animation-direction: normal;
+    }
+    .ai-loader-particles {
+      position: absolute; inset: 0; pointer-events: none;
+    }
+    .ai-loader-particles span {
+      position: absolute; width: 6px; height: 6px; border-radius: 50%;
+      background: #fff; opacity: 0.7;
+      animation: aiParticle 3.6s linear infinite;
+      filter: blur(0.5px);
+    }
+    .ai-loader-particles span:nth-child(1){ top:20%; left:50%; animation-delay: 0s;   background:#4285F4; }
+    .ai-loader-particles span:nth-child(2){ top:50%; left:80%; animation-delay: 0.5s; background:#9B72CB; }
+    .ai-loader-particles span:nth-child(3){ top:80%; left:50%; animation-delay: 1s;   background:#D96570; }
+    .ai-loader-particles span:nth-child(4){ top:50%; left:20%; animation-delay: 1.5s; background:#F0A858; }
+    .ai-loader-particles span:nth-child(5){ top:30%; left:75%; animation-delay: 2s;   background:#4285F4; }
+    .ai-loader-particles span:nth-child(6){ top:75%; left:30%; animation-delay: 2.5s; background:#9B72CB; }
+    @keyframes aiParticle {
+      0%   { transform: translate(0,0) scale(0.6); opacity: 0; }
+      20%  { opacity: 1; }
+      80%  { opacity: 1; }
+      100% { transform: translate(40px,-40px) scale(0); opacity: 0; }
+    }
+
+    .ai-loader-title {
+      margin-top: 8px;
+      font-size: 20px; font-weight: 700;
+      background: linear-gradient(110deg, #4285F4, #9B72CB, #D96570, #F0A858);
+      background-size: 200% 100%;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: aiTitleShift 4s ease-in-out infinite;
+      text-align: center;
+    }
+    @keyframes aiTitleShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    .ai-loader-step {
+      margin-top: 10px; font-size: 13px; color: var(--text-muted);
+      max-width: 80vw; text-align: center; min-height: 18px;
+      transition: opacity 0.3s;
+    }
+    body.light-mode .ai-loader-step { color: #555; }
+    .ai-loader-progress {
+      margin-top: 16px; width: 260px; max-width: 70vw;
+      height: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;
+    }
+    body.light-mode .ai-loader-progress { background: rgba(0,0,0,0.08); }
+    .ai-loader-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #4285F4, #9B72CB, #D96570, #F0A858);
+      background-size: 200% 100%;
+      width: 0%;
+      transition: width 0.5s ease;
+      animation: aiTitleShift 2s linear infinite;
+    }
+
+    /* ===== AI Done Modal ===== */
+    #aiDoneModal .modal { max-width: 460px; width: 92%; text-align: center; }
+    .ai-done-icon {
+      width: 70px; height: 70px; margin: 0 auto 12px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, #4285F4, #9B72CB, #D96570, #F0A858, #4285F4);
+      display: flex; align-items: center; justify-content: center;
+      animation: aiOrbSpin 6s linear infinite;
+    }
+    .ai-done-icon svg { background: var(--bg); border-radius: 50%; padding: 6px; width: 56px; height: 56px; }
+    .ai-done-title {
+      font-size: 20px; font-weight: 700; margin-bottom: 6px;
+      background: linear-gradient(110deg, #4285F4, #9B72CB, #D96570, #F0A858);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .ai-done-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; }
+    .ai-done-list {
+      max-height: 200px; overflow-y: auto; text-align: left;
+      background: var(--surface); border-radius: 10px; padding: 8px; margin-bottom: 14px;
+    }
+    .ai-done-item {
+      display: flex; gap: 8px; align-items: center;
+      padding: 6px; border-radius: 6px; font-size: 12px;
+    }
+    .ai-done-item img {
+      width: 60px; height: 34px; object-fit: cover; border-radius: 4px; flex-shrink: 0; background:#000;
+    }
+    .ai-done-item .t { flex:1; min-width:0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ai-done-btn-row { display: flex; gap: 8px; justify-content: center; }
+    .ai-done-btn {
+      padding: 10px 18px; border-radius: 22px; border: none;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+    }
+    .ai-done-btn.play {
+      background: linear-gradient(110deg, #4285F4, #9B72CB, #D96570);
+      color: #fff; box-shadow: 0 4px 14px -4px rgba(155,114,203,0.6);
+    }
+    .ai-done-btn.play:hover { transform: translateY(-1px); filter: brightness(1.08); }
+    .ai-done-btn.close {
+      background: var(--surface); color: var(--text-muted);
+    }
+    .ai-done-btn.close:hover { background: var(--card); color: var(--text); }
+  </style>
+
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+  import { getDatabase, ref, get, set, child } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCPkgzCIOP3-ln0eX6043s2G3tyZu4uj18",
+    authDomain: "message-site-d283b.firebaseapp.com",
+    databaseURL: "https://message-site-d283b-default-rtdb.firebaseio.com",
+    projectId: "message-site-d283b",
+    storageBucket: "message-site-d283b.firebasestorage.app",
+    messagingSenderId: "58182307350",
+    appId: "1:58182307350:web:34a295f442ed2ce4ffaf37",
+    measurementId: "G-BGT7PTEVK2"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const currentUrl = window.location.origin;
+
+if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !currentUrl.includes("cloudflare")) {
+      const safeKey = btoa(currentUrl).replace(/[=+/]/g, '_');
+      const dbRef = ref(db);
+
+      get(child(dbRef, `public_domains/${safeKey}`)).then((snapshot) => {
+        if (!snapshot.exists()) {
+          set(ref(db, `public_domains/${safeKey}`), {
+            url: currentUrl,
+            timestamp: Date.now()
+          });
+        }
+      });
+  }
+</script>
+
+  <script>
+    // ===== Thumbnail Server Logic =====
+    function getThumbUrl(id, type) {
+      const mode = localStorage.getItem('thumbServer') || 'default';
+      if (mode === 'custom') {
+        return `/img/${id}`;
+      }
+      return type === 'hq' ? `https://i3.ytimg.com/vi/${id}/hqdefault.jpg` : `https://i3.ytimg.com/vi/${id}/mqdefault.jpg`;
+    }
+
+    const videoGrid = document.getElementById('videoGrid');
+    const searchForm = document.getElementById('searchForm');
+    const searchInput = document.getElementById('searchInput');
+    const loading = document.getElementById('loading');
+    const shortsSection = document.getElementById('shortsSection');
+    const shortsRow = document.getElementById('shortsRow');
+    const shortsToggle = document.getElementById('shortsToggle');
+    const sidebar = document.getElementById('sidebar');
+
+    let displayedIds = new Set();
+    let isFetching = false;
+    let currentPage = 0;
+    let currentQuery = 'trending';
+    let shortsExpanded = true;
+
+    // Sidebar toggle
+    document.getElementById('menuBtn').addEventListener('click', () => {
+      sidebar.classList.toggle('expanded');
+    });
+
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    async function fetchEndpoint(endpoint) {
+      try {
+        const res = await fetch(endpoint);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.items || [];
+      } catch (err) {
+        return [];
+      }
+    }
+
+    function normalizeAndFilterList(list) {
+      const out = [];
+      for (const it of list) {
+        if (!it) continue;
+        let id = null;
+        if (typeof it.id === 'string') id = it.id;
+        else if (it.id && typeof it.id === 'object') {
+          id = it.id.videoId || it.id.channelId || it.id.playlistId || it.id;
+        } else if (it.videoId) { id = it.videoId; }
+        if (!id) continue;
+        id = String(id);
+        if (id.startsWith('UC')) continue;
+        it.id = id;
+        out.push(it);
+      }
+      return out;
+    }
+
+    function updateShortsToggleUI() {
+      if (!shortsSection || !shortsToggle || !shortsRow) return;
+      if (!shortsSection.style.display || shortsSection.style.display === 'none') {
+        shortsToggle.style.display = 'none';
+        return;
+      }
+      shortsToggle.style.display = 'inline-flex';
+      if (shortsExpanded) {
+        shortsToggle.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg> 非表示`;
+        shortsToggle.setAttribute('aria-expanded', 'true');
+        shortsRow.style.display = 'flex';
+      } else {
+        shortsToggle.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg> 表示`;
+        shortsToggle.setAttribute('aria-expanded', 'false');
+        shortsRow.style.display = 'none';
+      }
+    }
+
+    shortsToggle.addEventListener('click', () => {
+      shortsExpanded = !shortsExpanded;
+      updateShortsToggleUI();
+    });
+
+    async function loadContent(query = 'trending', page = 0) {
+      if (isFetching) return;
+      isFetching = true;
+      loading.style.display = 'block';
+
+      if (page === 0) {
+        displayedIds.clear();
+        videoGrid.innerHTML = '';
+        shortsRow.innerHTML = '';
+        shortsSection.style.display = 'none';
+        shortsExpanded = true;
+      }
+
+      const isDefault = query === 'trending';
+      const endpoint = isDefault
+        ? `/api/trending?page=${page}`
+        : `/api/search?q=${encodeURIComponent(query)}&page=${page}`;
+
+      try {
+        let items = await fetchEndpoint(endpoint);
+        items = normalizeAndFilterList(items);
+
+        if (page === 0) {
+          const MIN_ITEMS = 12;
+          if (items.length < MIN_ITEMS) {
+            const chips = Array.from(document.querySelectorAll('.chip'))
+              .map(c => c.dataset.q).filter(q => q && q !== query);
+            shuffleArray(chips);
+            const supplementPromises = [];
+            const maxSources = Math.min(4, chips.length);
+            for (let i = 0; i < maxSources; i++) {
+              const cat = chips[i];
+              const ep = cat === 'trending' ? `/api/trending?page=0` : `/api/search?q=${encodeURIComponent(cat)}&page=0`;
+              supplementPromises.push(fetchEndpoint(ep));
+            }
+            const supplementResults = await Promise.all(supplementPromises);
+            const combined = items.concat(...supplementResults.flat());
+            const filteredCombined = normalizeAndFilterList(combined);
+            const seen = new Set();
+            const deduped = [];
+            for (const it of filteredCombined) {
+              if (!it || !it.id) continue;
+              if (seen.has(it.id)) continue;
+              seen.add(it.id);
+              deduped.push(it);
+            }
+            items = shuffleArray(deduped);
+          }
+        }
+
+        if (items.length === 0 && page === 0) {
+          videoGrid.innerHTML = '<p class="empty">動画が見つかりませんでした。</p>';
+        }
+
+        let shorts = [];
+        const normals = [];
+        items.forEach(item => {
+          if (!item || !item.id) return;
+          const title = item.title || '';
+          if (title.includes('#')) shorts.push(item);
+          else normals.push(item);
+        });
+
+        if (page === 0) {
+          if (currentQuery !== 'trending' && shorts.length > 0 && shorts.length <= 4) {
+            const needed = 6;
+            const addedShortIds = new Set(shorts.map(s => s.id));
+            for (let p = 1; p <= 3 && shorts.length < needed; p++) {
+              const ep = `/api/search?q=${encodeURIComponent(currentQuery)}&page=${p}`;
+              try {
+                const resItems = await fetchEndpoint(ep);
+                const norm = normalizeAndFilterList(resItems);
+                for (const it of norm) {
+                  if (!it || !it.id || addedShortIds.has(it.id)) continue;
+                  if ((it.title || '').includes('#')) {
+                    shorts.push(it);
+                    addedShortIds.add(it.id);
+                    if (shorts.length >= needed) break;
+                  }
+                }
+              } catch (e) {}
+            }
+          }
+
+          if (shorts.length <= 4) {
+            shortsSection.style.display = 'none';
+          } else {
+            shortsSection.style.display = 'block';
+            shorts.forEach(item => {
+              if (!item || !item.id || displayedIds.has(item.id)) return;
+              displayedIds.add(item.id);
+              const a = document.createElement('a');
+              a.className = 'short-card';
+              a.href = `/video/${item.id}`;
+              const thumbUrl = getThumbUrl(item.id, 'hq');
+              const channel = item.channelTitle || '';
+              const viewText = item.viewCountText || '';
+              a.innerHTML = `
+                <div class="short-thumb">
+                  <img src="${thumbUrl}" loading="lazy" alt="${item.title || 'ショート'}">
+                  <div class="short-overlay">
+                    <div class="short-title">${item.title || ''}</div>
+                    <div class="short-views">${viewText}</div>
+                  </div>
+                </div>
+              `;
+              shortsRow.appendChild(a);
+            });
+            updateShortsToggleUI();
+          }
+        }
+
+        normals.forEach(item => {
+          if (!item || !item.id || displayedIds.has(item.id)) return;
+          displayedIds.add(item.id);
+
+          const card = document.createElement('a');
+          card.className = 'video-card';
+          card.href = `/video/${item.id}`;
+          const thumbUrl = getThumbUrl(item.id, 'mq');
+          const channel = item.channelTitle || '';
+          const viewText = item.viewCountText || '';
+          const published = item.publishedTimeText || '';
+          const initial = channel ? channel[0].toUpperCase() : 'C';
+          // チャンネルアバター画像URL（ui-avatars フォールバック）
+          const avatarUrl = item.channelThumbnail || item.channelImage || '';
+          const subKey = 'subscribed_' + channel;
+          const isSub = localStorage.getItem(subKey) === 'true';
+
+          card.innerHTML = `
+            <div class="thumb">
+              <img src="${thumbUrl}" loading="lazy" alt="${item.title || '動画'}">
+              ${item.lengthText ? `<div class="duration-badge">${item.lengthText}</div>` : ''}
+            </div>
+            <div class="meta">
+              <a href="/channel/${encodeURIComponent(channel)}" class="channel-avatar" data-initial="${initial}" onclick="event.stopPropagation()" style="text-decoration:none;">
+                <span class="avatar-initial">${initial}</span>
+                ${avatarUrl ? `<img src="${avatarUrl}" alt="${channel}" onload="this.classList.add('loaded')" onerror="this.remove()">` : ''}
+              </a>
+              <div class="details">
+                <h3>${item.title || ''}</h3>
+                <a href="/channel/${encodeURIComponent(channel)}" class="channel-name" onclick="event.stopPropagation()" style="text-decoration:none;color:var(--text-muted);">${channel}</a>
+                <div class="video-stats">${viewText}${viewText && published ? ' • ' : ''}${published || item.publishedTimeText || ''}</div>
+              </div>
+              <button class="card-menu-btn" aria-label="メニュー" data-id="${item.id}" data-title="${(item.title||'').replace(/"/g,'&quot;')}" data-channel="${channel.replace(/"/g,'&quot;')}" data-views="${viewText}" data-published="${published}">⋮</button>
+            </div>
+          `;
+          // アバター画像がない場合はui-avatarsから取得
+          if (!avatarUrl) {
+            const avatarEl = card.querySelector('.channel-avatar');
+            const img = document.createElement('img');
+            img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(channel)}&background=random&color=fff&size=64&bold=true`;
+            img.alt = channel;
+            img.onload = () => img.classList.add('loaded');
+            img.onerror = () => img.remove();
+            avatarEl.appendChild(img);
+          }
+          videoGrid.appendChild(card);
+        });
+
+      } catch (err) {
+        console.error("Fetch error", err);
+      } finally {
+        isFetching = false;
+        loading.style.display = 'none';
+      }
+    }
+
+    searchForm.onsubmit = (e) => {
+      e.preventDefault();
+      autocompleteDropdown.classList.remove('show');
+      const q = searchInput.value.trim();
+      if (!q) return;
+      recordSearchHistory(q);
+      currentQuery = q;
+      currentPage = 0;
+      isPersonalized = false;
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      history.pushState(null, '', `/search?q=${encodeURIComponent(q)}`);
+      loadContent(q, 0);
+    };
+
+    window.onscroll = () => {
+      const scrollPos = window.innerHeight + window.scrollY;
+      const threshold = document.documentElement.scrollHeight - 800;
+      if (scrollPos >= threshold && !isFetching) {
+        currentPage++;
+        if (isPersonalized) {
+          loadPersonalizedFeed(currentPage);
+        } else {
+          loadContent(currentQuery, currentPage);
+        }
+      }
+    };
+
+    document.getElementById('chipsBar').onclick = (e) => {
+      const chip = e.target.closest('.chip');
+      if (chip) {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentPage = 0;
+        searchInput.value = '';
+        if (chip.dataset.q === 'recommended') {
+          isPersonalized = true;
+          loadPersonalizedFeed(0);
+        } else {
+          isPersonalized = false;
+          currentQuery = chip.dataset.q;
+          loadContent(currentQuery, 0);
+        }
+      }
+    };
+
+    // Sidebar link clicks
+    document.querySelectorAll('.sidebar-item[data-q]').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        const q = item.dataset.q;
+        if (!q) return;
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        const matchingChip = document.querySelector(`.chip[data-q="${q}"]`);
+        if (matchingChip) matchingChip.classList.add('active');
+        currentPage = 0;
+        searchInput.value = '';
+        if (q === 'recommended') {
+          isPersonalized = true;
+          loadPersonalizedFeed(0);
+        } else {
+          isPersonalized = false;
+          currentQuery = q;
+          loadContent(q, 0);
+        }
+      });
+    });
+
+    // Settings
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const themeDark = document.getElementById('themeDark');
+    const themeLight = document.getElementById('themeLight');
+    const darkLabel = document.getElementById('darkLabel');
+    const lightLabel = document.getElementById('lightLabel');
+
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      settingsPanel.classList.toggle('open');
+    });
+    settingsPanel.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', (e) => {
+      if (!settingsBtn.contains(e.target)) settingsPanel.classList.remove('open');
+    });
+
+    function applyTheme(isLight) {
+      if (isLight) {
+        document.body.classList.add('light-mode');
+        lightLabel.classList.add('selected'); darkLabel.classList.remove('selected');
+        themeLight.checked = true;
+      } else {
+        document.body.classList.remove('light-mode');
+        darkLabel.classList.add('selected'); lightLabel.classList.remove('selected');
+        themeDark.checked = true;
+      }
+      localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    }
+    themeDark.addEventListener('change', () => { if (themeDark.checked) applyTheme(false); });
+    themeLight.addEventListener('change', () => { if (themeLight.checked) applyTheme(true); });
+    const savedTheme = localStorage.getItem('theme');
+    applyTheme(savedTheme === 'light');
+
+    // Playback
+    const playbackMode = document.getElementById('playbackMode');
+    const playbackHint = document.getElementById('playbackHint');
+    const PLAYBACK_HINTS = {
+      'googlevideo': 'Googlevideoのストリームで再生します（デフォルト）。',
+      'youtube-nocookie': 'YouTube埋め込みプレイヤーで再生します（確実に動作します）。',
+      'DL-Pro': 'DL-Proサーバー経由で360p相当のストリームを取得します。',
+      'YoutubeEdu-Kahoot': 'Kahoot経由のYouTube教育プレイヤーで再生します。',
+      'YoutubeEdu-Scratch': 'Scratch経由のYouTube教育プレイヤーで再生します。',
+      'Youtube-Pro': 'Youtube-Proサーバー経由で再生します。',
+      'Elixir-Network': 'Elixir-Networkプロキシ経由で再生します（ブロック回避に有効）。'
+    };
+    function applyPlaybackMode(mode) {
+      playbackMode.value = mode;
+      playbackHint.textContent = PLAYBACK_HINTS[mode] || PLAYBACK_HINTS.googlevideo;
+      localStorage.setItem('playbackMode', mode);
+    }
+    playbackMode.addEventListener('change', () => applyPlaybackMode(playbackMode.value));
+    applyPlaybackMode(localStorage.getItem('playbackMode') || 'googlevideo');
+
+    // Thumbnail Server Settings
+    const thumbServerSelect = document.getElementById('thumbServer');
+    function applyThumbServer(mode) {
+      thumbServerSelect.value = mode;
+      localStorage.setItem('thumbServer', mode);
+    }
+    thumbServerSelect.addEventListener('change', () => {
+      applyThumbServer(thumbServerSelect.value);
+      location.reload();
+    });
+    applyThumbServer(localStorage.getItem('thumbServer') || 'default');
+
+    const thumbHelpBtn = document.getElementById('thumbHelpBtn');
+    if (thumbHelpBtn) {
+      thumbHelpBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (confirm('サムネイルが表示されないため、画像取得サーバーを「カスタムサーバー」に切り替えますか？')) {
+          applyThumbServer('custom');
+          location.reload();
+        }
+      });
+    }
+
+    // Autocomplete Logic
+    const autocompleteDropdown = document.getElementById('autocompleteDropdown');
+    let suggestScript = null;
+    let autocompleteItems = [];
+    let autocompleteSelectedIndex = -1;
+
+    window.ytSuggestCallback = function(data) {
+      const suggestions = data[1];
+      renderAutocomplete(suggestions);
+    };
+
+    function fetchSuggestions(q) {
+      if (!q.trim()) {
+        autocompleteDropdown.classList.remove('show');
+        return;
+      }
+      if (suggestScript) {
+        suggestScript.remove();
+      }
+      suggestScript = document.createElement('script');
+      suggestScript.src = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&jsonp=ytSuggestCallback`;
+      document.body.appendChild(suggestScript);
+    }
+
+    let searchTimeout;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        fetchSuggestions(e.target.value);
+      }, 150);
+    });
+
+    searchInput.addEventListener('focus', () => {
+      if (searchInput.value.trim() && autocompleteDropdown.innerHTML.trim() !== '') {
+        autocompleteDropdown.classList.add('show');
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!searchForm.contains(e.target) && !autocompleteDropdown.contains(e.target)) {
+        autocompleteDropdown.classList.remove('show');
+      }
+    });
+
+    function renderAutocomplete(suggestions) {
+      if (!suggestions || suggestions.length === 0) {
+        autocompleteDropdown.classList.remove('show');
+        return;
+      }
+      autocompleteItems = suggestions.map(s => s[0]);
+      autocompleteSelectedIndex = -1;
+
+      autocompleteDropdown.innerHTML = autocompleteItems.map((text, idx) => `
+        <div class="autocomplete-item" data-idx="${idx}">
+          <svg class="autocomplete-icon" viewBox="0 0 24 24"><path d="M20.87 20.17l-5.59-5.59C16.35 13.35 17 11.75 17 10c0-3.87-3.13-7-7-7s-7 3.13-7 7 3.13 7 7 7c1.75 0 3.35-.65 4.58-1.71l5.59 5.59.7-.71zM10 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+          <span>${text}</span>
+        </div>
+      `).join('');
+
+      autocompleteDropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+        item.addEventListener('click', () => {
+          searchInput.value = autocompleteItems[item.dataset.idx];
+          autocompleteDropdown.classList.remove('show');
+          searchForm.dispatchEvent(new Event('submit'));
+        });
+        item.addEventListener('mouseenter', () => {
+          updateAutocompleteSelection(parseInt(item.dataset.idx));
+        });
+      });
+
+      autocompleteDropdown.classList.add('show');
+    }
+
+    function updateAutocompleteSelection(index) {
+      autocompleteSelectedIndex = index;
+      const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
+      items.forEach((item, idx) => {
+        if (idx === index) item.classList.add('selected');
+        else item.classList.remove('selected');
+      });
+    }
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (!autocompleteDropdown.classList.contains('show')) return;
+
+      const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nextIdx = (autocompleteSelectedIndex + 1) % items.length;
+        updateAutocompleteSelection(nextIdx);
+        searchInput.value = autocompleteItems[nextIdx];
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prevIdx = (autocompleteSelectedIndex - 1 + items.length) % items.length;
+        updateAutocompleteSelection(prevIdx);
+        searchInput.value = autocompleteItems[prevIdx];
+      }
+    });
+
+    // Version
+    async function fetchAndShowVersion() {
+      try {
+        const res = await fetch('/version');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.version) {
+          const badge = document.getElementById('appVersion');
+          const textEl = badge.querySelector('.version-badge-text');
+          if (badge && textEl) {
+            textEl.textContent = 'v' + data.version;
+            badge.classList.add('show');
+          }
+        }
+      } catch (e) {}
+    }
+    fetchAndShowVersion();
+
+    // ===== パーソナライズ =====
+    // チャンネル登録リストを取得
+    function getSubscribedChannels() {
+      const channels = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('subscribed_') && localStorage.getItem(key) === 'true') {
+          channels.push(key.replace('subscribed_', ''));
+        }
+      }
+      return channels;
+    }
+
+    // 閲覧履歴からキーワードを抽出（チャンネル名 + タイトルの主要語）
+    function getHistoryKeywords() {
+      const hist = libGet(LIB_HISTORY);
+      const channels = [...new Set(hist.slice(0, 30).map(h => h.channel).filter(Boolean))];
+      const titleWords = [];
+      hist.slice(0, 20).forEach(h => {
+        if (!h.title) return;
+        // 短い語・記号を除いてキーワード抽出
+        const words = h.title.replace(/[【】「」()!！?？\[\]#♪★☆◆◇]/g, ' ').split(/\s+/).filter(w => w.length >= 3);
+        words.slice(0, 2).forEach(w => titleWords.push(w));
+      });
+      return { channels: channels.slice(0, 5), titleWords: [...new Set(titleWords)].slice(0, 8) };
+    }
+
+    // パーソナライズフィードを構築（登録チャンネル＋履歴キーワードで検索、シャッフル混合）
+    async function loadPersonalizedFeed(page = 0) {
+      if (isFetching) return;
+      isFetching = true;
+      loading.style.display = 'block';
+
+      if (page === 0) {
+        displayedIds.clear();
+        videoGrid.innerHTML = '';
+        shortsRow.innerHTML = '';
+        shortsSection.style.display = 'none';
+        shortsExpanded = true;
+      }
+
+      const subscribedChannels = getSubscribedChannels();
+      const { channels: histChannels, titleWords } = getHistoryKeywords();
+
+      // 登録チャンネルと履歴チャンネルを合算（重複除去）
+      const allChannels = [...new Set([...subscribedChannels, ...histChannels])];
+      const allKeywords = [...allChannels, ...titleWords];
+
+      // キーワードがなければトレンドにフォールバック
+      if (allKeywords.length === 0) {
+        isFetching = false;
+        loading.style.display = 'none';
+        loadContent('trending', page);
+        return;
+      }
+
+      try {
+        // ページに応じてキーワードをローテーション（無限スクロール対応）
+        const shuffled = shuffleArray([...allKeywords]);
+        const pick = shuffled.slice((page % Math.max(shuffled.length, 1)) * 2, (page % Math.max(shuffled.length, 1)) * 2 + 3);
+        const queries = pick.length > 0 ? pick : shuffled.slice(0, 3);
+
+        const promises = queries.map(q => fetchEndpoint(`/api/search?q=${encodeURIComponent(q)}&page=${Math.floor(page / Math.max(queries.length, 1))}`));
+        // トレンドも少し混ぜる（page=0のみ）
+        if (page === 0) promises.push(fetchEndpoint(`/api/trending?page=0`));
+
+        const results = await Promise.all(promises);
+        let items = normalizeAndFilterList(results.flat());
+
+        // 重複除去
+        const seen = new Set([...displayedIds]);
+        items = items.filter(it => { if (seen.has(it.id)) return false; seen.add(it.id); return true; });
+        items = shuffleArray(items);
+
+        if (items.length === 0 && page === 0) {
+          videoGrid.innerHTML = '<p class="empty">動画が見つかりませんでした。</p>';
+        }
+
+        const shorts = [], normals = [];
+        items.forEach(item => {
+          if (!item || !item.id) return;
+          if ((item.title || '').includes('#')) shorts.push(item);
+          else normals.push(item);
+        });
+
+        // ショート表示（page=0のみ）
+        if (page === 0 && shorts.length > 4) {
+          shortsSection.style.display = 'block';
+          shorts.forEach(item => {
+            if (displayedIds.has(item.id)) return;
+            displayedIds.add(item.id);
+            const a = document.createElement('a');
+            a.className = 'short-card';
+            a.href = `/video/${item.id}`;
+            const thumbUrl = getThumbUrl(item.id, 'hq');
+            a.innerHTML = `
+              <div class="short-thumb">
+                <img src="${thumbUrl}" loading="lazy" alt="${item.title || 'ショート'}">
+                <div class="short-overlay">
+                  <div class="short-title">${item.title || ''}</div>
+                  <div class="short-views">${item.viewCountText || ''}</div>
+                </div>
+              </div>
+            `;
+            shortsRow.appendChild(a);
+          });
+          updateShortsToggleUI();
+        }
+
+        normals.forEach(item => {
+          if (!item || !item.id || displayedIds.has(item.id)) return;
+          displayedIds.add(item.id);
+          const card = document.createElement('a');
+          card.className = 'video-card';
+          card.href = `/video/${item.id}`;
+          const thumbUrl = getThumbUrl(item.id, 'mq');
+          const channel = item.channelTitle || '';
+          const viewText = item.viewCountText || '';
+          const published = item.publishedTimeText || '';
+          const initial = channel ? channel[0].toUpperCase() : 'C';
+          const avatarUrl = item.channelThumbnail || item.channelImage || '';
+          const subKey = 'subscribed_' + channel;
+          const isSub = localStorage.getItem(subKey) === 'true';
+          card.innerHTML = `
+            <div class="thumb">
+              <img src="${thumbUrl}" loading="lazy" alt="${item.title || '動画'}">
+              ${item.lengthText ? `<div class="duration-badge">${item.lengthText}</div>` : ''}
+            </div>
+            <div class="meta">
+              <a href="/channel/${encodeURIComponent(channel)}" class="channel-avatar" data-initial="${initial}" onclick="event.stopPropagation()" style="text-decoration:none;">
+                <span class="avatar-initial">${initial}</span>
+                ${avatarUrl ? `<img src="${avatarUrl}" alt="${channel}" onload="this.classList.add('loaded')" onerror="this.remove()">` : ''}
+              </a>
+              <div class="details">
+                <h3>${item.title || ''}</h3>
+                <a href="/channel/${encodeURIComponent(channel)}" class="channel-name" onclick="event.stopPropagation()" style="text-decoration:none;color:var(--text-muted);">${channel}</a>
+                <div class="video-stats">${viewText}${viewText && published ? ' • ' : ''}${published || item.publishedTimeText || ''}</div>
+              </div>
+              <button class="card-menu-btn" aria-label="メニュー" data-id="${item.id}" data-title="${(item.title||'').replace(/"/g,'&quot;')}" data-channel="${channel.replace(/"/g,'&quot;')}" data-views="${viewText}" data-published="${published}">⋮</button>
+            </div>
+          `;
+          if (!avatarUrl) {
+            const avatarEl = card.querySelector('.channel-avatar');
+            const img = document.createElement('img');
+            img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(channel)}&background=random&color=fff&size=64&bold=true`;
+            img.alt = channel;
+            img.onload = () => img.classList.add('loaded');
+            img.onerror = () => img.remove();
+            avatarEl.appendChild(img);
+          }
+          videoGrid.appendChild(card);
+        });
+
+      } catch (err) {
+        console.error('Personalized feed error', err);
+      } finally {
+        isFetching = false;
+        loading.style.display = 'none';
+      }
+    }
+
+    // パーソナライズモードかどうか
+    let isPersonalized = true;
+
+    window.onload = () => {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('q');
+      if (q) {
+        currentQuery = q;
+        searchInput.value = q;
+        isPersonalized = false;
+        loadContent(q, 0);
+      } else {
+        isPersonalized = true;
+        loadPersonalizedFeed(0);
+      }
+    };
+
+    // ===== LIBRARY: History / Liked / Playlists =====
+    const LIB_HISTORY  = 'mt_history';
+    const LIB_LIKED    = 'mt_liked';
+    const LIB_PLAYLISTS = 'mt_playlists';
+    const LIB_SEARCH_HISTORY = 'mt_search_history';
+    const MAX_HISTORY  = 200;
+    const MAX_SEARCH_HISTORY = 100;
+
+    function libGet(key) { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; } }
+    function libSet(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+    // --- Search History ---
+    function recordSearchHistory(query) {
+      if (!query || !query.trim()) return;
+      let sh = libGet(LIB_SEARCH_HISTORY);
+      sh = sh.filter(x => x.query !== query.trim());
+      sh.unshift({ query: query.trim(), ts: Date.now() });
+      if (sh.length > MAX_SEARCH_HISTORY) sh = sh.slice(0, MAX_SEARCH_HISTORY);
+      libSet(LIB_SEARCH_HISTORY, sh);
+    }
+    function removeSearchHistory(query) {
+      libSet(LIB_SEARCH_HISTORY, libGet(LIB_SEARCH_HISTORY).filter(x => x.query !== query));
+      openDrawer('searchHistory');
+    }
+    function clearSearchHistory() {
+      if (confirm('検索履歴をすべて削除しますか？')) { libSet(LIB_SEARCH_HISTORY, []); openDrawer('searchHistory'); }
+    }
+    window.removeSearchHistory = removeSearchHistory;
+    window.clearSearchHistory = clearSearchHistory;
+    function recordHistory(item) {
+      let hist = libGet(LIB_HISTORY);
+      hist = hist.filter(h => h.id !== item.id);
+      hist.unshift({ id: item.id, title: item.title, channel: item.channel, views: item.views, published: item.published, ts: Date.now() });
+      if (hist.length > MAX_HISTORY) hist = hist.slice(0, MAX_HISTORY);
+      libSet(LIB_HISTORY, hist);
+    }
+
+    // --- Liked ---
+    function addLiked(item) {
+      let liked = libGet(LIB_LIKED);
+      if (liked.find(x => x.id === item.id)) {
+        showToast('既に高評価済みです');
+        return;
+      }
+      liked.unshift({ ...item, ts: Date.now() });
+      libSet(LIB_LIKED, liked);
+      showToast('高評価に追加しました 👍');
+    }
+    function removeLiked(id) {
+      libSet(LIB_LIKED, libGet(LIB_LIKED).filter(x => x.id !== id));
+      openDrawer('liked');
+    }
+
+    // --- Playlists ---
+    function getPlaylists() { return libGet(LIB_PLAYLISTS); }
+    function savePlaylists(pls) { libSet(LIB_PLAYLISTS, pls); }
+    function addPlaylist(name) {
+      const pls = getPlaylists();
+      const pl = { id: Date.now().toString(), name, items: [], createdAt: Date.now() };
+      pls.push(pl);
+      savePlaylists(pls);
+      return pl;
+    }
+    function deletePlaylist(plId) {
+      savePlaylists(getPlaylists().filter(p => p.id !== plId));
+    }
+    function addToPlaylist(plId, item) {
+      const pls = getPlaylists();
+      const pl = pls.find(p => p.id === plId);
+      if (!pl) return false;
+      if (pl.items.find(x => x.id === item.id)) { showToast('既に追加済みです'); return false; }
+      pl.items.push({ ...item, ts: Date.now() });
+      savePlaylists(pls);
+      return true;
+    }
+    function removeFromPlaylist(plId, itemId) {
+      const pls = getPlaylists();
+      const pl = pls.find(p => p.id === plId);
+      if (pl) { pl.items = pl.items.filter(x => x.id !== itemId); savePlaylists(pls); }
+    }
+    function exportPlaylist(plId) {
+      const pl = getPlaylists().find(p => p.id === plId);
+      if (!pl) return;
+      const blob = new Blob([JSON.stringify(pl, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `playlist_${pl.name.replace(/\s+/g,'_')}.json`;
+      a.click();
+    }
+
+    // --- Toast ---
+    let _toastTimer;
+    function showToast(msg) {
+      let t = document.getElementById('libToast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'libToast';
+        t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;z-index:3000;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;';
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      t.style.opacity = '1';
+      clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2500);
+    }
+
+    // --- Drawer ---
+    let _drawerMode = null;
+    let _drawerPlId = null;
+    function openDrawer(mode, plId) {
+      _drawerMode = mode;
+      _drawerPlId = plId || null;
+      const drawer = document.getElementById('libraryDrawer');
+      const overlay = document.getElementById('drawerOverlay');
+      const title = document.getElementById('drawerTitle');
+      const body = document.getElementById('drawerBody');
+      const titles = { history: '視聴履歴', searchHistory: '検索履歴', liked: '高評価した動画', playlists: '再生リスト', playlistDetail: '再生リスト' };
+      title.textContent = titles[mode] || 'ライブラリ';
+      body.innerHTML = '';
+      if (mode === 'history') renderHistoryDrawer(body);
+      else if (mode === 'searchHistory') renderSearchHistoryDrawer(body);
+      else if (mode === 'liked') renderLikedDrawer(body);
+      else if (mode === 'playlists') renderPlaylistsDrawer(body);
+      else if (mode === 'playlistDetail') renderPlaylistDetail(body, plId);
+      drawer.classList.add('open');
+      overlay.classList.add('open');
+    }
+    function closeDrawer() {
+      document.getElementById('libraryDrawer').classList.remove('open');
+      document.getElementById('drawerOverlay').classList.remove('open');
+    }
+
+    function libItemHTML(item, removeFn) {
+      return `<div style="display:flex;gap:12px;align-items:center;padding:8px;border-radius:10px;margin-bottom:4px;transition:background 0.1s;" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''">
+        <a href="/video/${item.id}" onclick="recordHistory(${JSON.stringify(item).replace(/</g,'\\u003c')})" style="display:flex;gap:12px;align-items:center;flex:1;text-decoration:none;color:inherit;min-width:0;">
+          <div style="width:96px;min-width:96px;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#1a1a1a;">
+            <img src="${getThumbUrl(item.id, 'mq')}" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:500;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:4px;">${item.title || ''}</div>
+            <div style="font-size:12px;color:var(--text-muted);">${item.channel || ''}${item.views ? ' • '+item.views : ''}</div>
+          </div>
+        </a>
+        <button onclick="${removeFn}" style="background:none;border:none;color:var(--text-muted);width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;" title="削除">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>`;
+    }
+
+    function renderSearchHistoryDrawer(body) {
+      const sh = libGet(LIB_SEARCH_HISTORY);
+      if (!sh.length) {
+        body.innerHTML = `<div class="lib-empty"><svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M20.87 20.17l-5.59-5.59C16.35 13.35 17 11.75 17 10c0-3.87-3.13-7-7-7s-7 3.13-7 7 3.13 7 7 7c1.75 0 3.35-.65 4.58-1.71l5.59 5.59.7-.71zM10 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>検索履歴はまだありません</div>`;
+        return;
+      }
+      const clearBtn = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button onclick="clearSearchHistory()" style="background:none;border:1px solid var(--border);color:var(--text-muted);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer;">履歴をすべて削除</button></div>`;
+      body.innerHTML = clearBtn + sh.map(item => {
+        const dateStr = item.ts ? new Date(item.ts).toLocaleDateString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+        const safeQuery = item.query.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return `<div style="display:flex;gap:12px;align-items:center;padding:10px 8px;border-radius:10px;margin-bottom:2px;transition:background 0.1s;" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="flex-shrink:0;opacity:0.4;"><path d="M20.87 20.17l-5.59-5.59C16.35 13.35 17 11.75 17 10c0-3.87-3.13-7-7-7s-7 3.13-7 7 3.13 7 7 7c1.75 0 3.35-.65 4.58-1.71l5.59 5.59.7-.71zM10 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+          <div style="flex:1;min-width:0;cursor:pointer;" onclick="searchInput.value='${safeQuery}';autocompleteDropdown.classList.remove('show');recordSearchHistory('${safeQuery}');currentQuery='${safeQuery}';currentPage=0;isPersonalized=false;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));history.pushState(null,'','/search?q='+encodeURIComponent('${safeQuery}'));loadContent('${safeQuery}',0);closeDrawer();">
+            <div style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.query}</div>
+            ${dateStr ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${dateStr}</div>` : ''}
+          </div>
+          <button onclick="removeSearchHistory('${safeQuery}')" style="background:none;border:none;color:var(--text-muted);width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="削除">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>`;
+      }).join('');
+    }
+
+    function renderHistoryDrawer(body) {      const hist = libGet(LIB_HISTORY);
+      if (!hist.length) { body.innerHTML = `<div class="lib-empty"><svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M13 3a9 9 0 1 0 0 18A9 9 0 0 0 13 3zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7zm.5-11H12v6l5.25 3.15.75-1.23-4.5-2.67V8z"/></svg>視聴履歴はまだありません</div>`; return; }
+      const clearBtn = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button onclick="clearHistory()" style="background:none;border:1px solid var(--border);color:var(--text-muted);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer;">履歴をすべて削除</button></div>`;
+      body.innerHTML = clearBtn + hist.map(item => libItemHTML(item, `removeHistory('${item.id}')`)).join('');
+    }
+    function clearHistory() { if (confirm('視聴履歴をすべて削除しますか？')) { libSet(LIB_HISTORY, []); openDrawer('history'); } }
+    function removeHistory(id) { libSet(LIB_HISTORY, libGet(LIB_HISTORY).filter(x => x.id !== id)); openDrawer('history'); }
+
+    function renderLikedDrawer(body) {
+      const liked = libGet(LIB_LIKED);
+      if (!liked.length) { body.innerHTML = `<div class="lib-empty"><svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>高評価した動画はまだありません</div>`; return; }
+      body.innerHTML = liked.map(item => libItemHTML(item, `removeLiked('${item.id}')`)).join('');
+    }
+    window.removeLiked = removeLiked;
+    window.removeHistory = removeHistory;
+
+    function renderPlaylistsDrawer(body) {
+      const pls = getPlaylists();
+      const actRow = `<div class="drawer-action-row">
+        <button class="btn-create-playlist" onclick="openCreatePl()">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>新しい再生リスト
+        </button>
+      </div>`;
+      if (!pls.length) {
+        body.innerHTML = actRow + `<div class="lib-empty"><svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>再生リストはまだありません</div>`;
+        return;
+      }
+      const cards = pls.map(pl => `
+        <div class="playlist-card">
+          <div class="playlist-card-header" onclick="openDrawer('playlistDetail','${pl.id}')">
+            <div class="playlist-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></div>
+            <div>
+              <div class="playlist-name">${pl.name}</div>
+              <div class="playlist-count">${pl.items.length}本の動画</div>
+            </div>
+          </div>
+          <div class="playlist-card-actions">
+            <button class="btn-playlist-open" onclick="openDrawer('playlistDetail','${pl.id}')">開く</button>
+            <button class="btn-playlist-export" onclick="exportPlaylist('${pl.id}')" title="JSONエクスポート">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> 書き出し
+            </button>
+            <button class="btn-playlist-delete" onclick="deletePlaylistUI('${pl.id}')">削除</button>
+          </div>
+        </div>`).join('');
+      body.innerHTML = actRow + cards;
+    }
+    function deletePlaylistUI(plId) { if (confirm('この再生リストを削除しますか？')) { deletePlaylist(plId); openDrawer('playlists'); } }
+    window.deletePlaylistUI = deletePlaylistUI;
+    window.exportPlaylist = exportPlaylist;
+
+    function renderPlaylistDetail(body, plId) {
+      const pl = getPlaylists().find(p => p.id === plId);
+      if (!pl) { body.innerHTML = '<div class="lib-empty">見つかりません</div>'; return; }
+      document.getElementById('drawerTitle').textContent = pl.name;
+      const backBtn = `<button class="drawer-back-btn" onclick="openDrawer('playlists')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>再生リスト一覧
+      </button>`;
+      const exportBtn = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button onclick="exportPlaylist('${plId}')" style="background:none;border:1px solid var(--border);color:var(--text-muted);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;"><svg viewBox='0 0 24 24' width='14' height='14' fill='currentColor'><path d='M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z'/></svg>JSONで書き出し</button></div>`;
+      if (!pl.items.length) {
+        body.innerHTML = backBtn + exportBtn + `<div class="lib-empty">この再生リストはまだ空です</div>`;
+        return;
+      }
+      body.innerHTML = backBtn + exportBtn + pl.items.map(item => libItemHTML(item, `removePlItem('${plId}','${item.id}')`)).join('');
+    }
+    function removePlItem(plId, itemId) { removeFromPlaylist(plId, itemId); openDrawer('playlistDetail', plId); }
+    window.removePlItem = removePlItem;
+
+    // --- Create playlist modal ---
+    function openCreatePl() {
+      const m = document.getElementById('createPlModal');
+      document.getElementById('createPlInput').value = '';
+      m.classList.add('open');
+      setTimeout(() => document.getElementById('createPlInput').focus(), 50);
+    }
+    function closeCreatePl() { document.getElementById('createPlModal').classList.remove('open'); }
+    function doCreatePlaylist() {
+      const name = document.getElementById('createPlInput').value.trim();
+      if (!name) return;
+      addPlaylist(name);
+      closeCreatePl();
+      openDrawer('playlists');
+      showToast(`「${name}」を作成しました`);
+    }
+    window.openCreatePl = openCreatePl;
+    window.closeCreatePl = closeCreatePl;
+    window.doCreatePlaylist = doCreatePlaylist;
+
+    // --- Playlist picker modal (from card menu) ---
+    let _ddItem = null;
+    function closePlPicker() { document.getElementById('plPickerModal').classList.remove('open'); }
+    function openPlPicker(item) {
+      _ddItem = item;
+      const pls = getPlaylists();
+      const list = document.getElementById('plPickerList');
+      document.getElementById('plPickerInput').value = '';
+      if (!pls.length) { list.innerHTML = '<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">再生リストがありません。下から新規作成してください。</div>'; }
+      else {
+        list.innerHTML = pls.map(pl => `<div class="modal-pl-item" onclick="plPickerAdd('${pl.id}')">
+          <div class="modal-pl-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></div>
+          <span>${pl.name}</span><span style="margin-left:auto;font-size:12px;color:var(--text-muted);">${pl.items.length}本</span>
+        </div>`).join('');
+      }
+      document.getElementById('plPickerModal').classList.add('open');
+    }
+    function plPickerAdd(plId) {
+      if (!_ddItem) return;
+      const ok = addToPlaylist(plId, _ddItem);
+      if (ok) { showToast('再生リストに追加しました ✅'); }
+      closePlPicker();
+    }
+    function plPickerCreate() {
+      const name = document.getElementById('plPickerInput').value.trim();
+      if (!name) { showToast('名前を入力してください'); return; }
+      const pl = addPlaylist(name);
+      if (_ddItem) addToPlaylist(pl.id, _ddItem);
+      showToast(`「${name}」を作成して追加しました ✅`);
+      closePlPicker();
+    }
+    window.plPickerAdd = plPickerAdd;
+    window.plPickerCreate = plPickerCreate;
+    window.closePlPicker = closePlPicker;
+
+    // --- Card context dropdown ---
+    const cardDropdown = document.getElementById('cardDropdown');
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.card-menu-btn');
+      if (btn) {
+        e.preventDefault(); e.stopPropagation();
+        _ddItem = { id: btn.dataset.id, title: btn.dataset.title, channel: btn.dataset.channel, views: btn.dataset.views, published: btn.dataset.published };
+        const rect = btn.getBoundingClientRect();
+        const ddW = 210, ddH = 100;
+        let top = rect.bottom + 4, left = rect.left;
+        if (left + ddW > window.innerWidth) left = window.innerWidth - ddW - 8;
+        if (top + ddH > window.innerHeight) top = rect.top - ddH - 4;
+        cardDropdown.style.top = top + 'px';
+        cardDropdown.style.left = left + 'px';
+        cardDropdown.classList.add('open');
+        return;
+      }
+      cardDropdown.classList.remove('open');
+    });
+    function ddAddLiked() { if (_ddItem) addLiked(_ddItem); cardDropdown.classList.remove('open'); }
+    function ddShowPlaylistPicker() { cardDropdown.classList.remove('open'); if (_ddItem) openPlPicker(_ddItem); }
+    window.ddAddLiked = ddAddLiked;
+    window.ddShowPlaylistPicker = ddShowPlaylistPicker;
+
+    // Intercept video card clicks to record history
+    document.addEventListener('click', (e) => {
+      const card = e.target.closest('a.video-card');
+      if (card && !e.target.closest('.card-menu-btn')) {
+        const btn = card.querySelector('.card-menu-btn');
+        if (btn) {
+          recordHistory({ id: btn.dataset.id, title: btn.dataset.title, channel: btn.dataset.channel, views: btn.dataset.views, published: btn.dataset.published });
+        }
+      }
+    });
+    // チャンネル登録トグル（ホームカード）
+    window.recordHistory = recordHistory;
+    window.openDrawer = openDrawer;
+    window.closeDrawer = closeDrawer;
+    function runHomePromotionOnce() {
+      // すでに表示済みかチェック
+      const hasSeen = localStorage.getItem('mt_home_promo_seen');
+      if (hasSeen) return;
+
+      const btn = document.getElementById('homePromoBtn');
+      const bubble = document.getElementById('homePromoBubble');
+      if (!btn || !bubble) return;
+
+      // 1.5秒後に宣伝を開始
+      setTimeout(() => {
+        btn.classList.add('home-promo-active');
+        bubble.classList.add('show');
+        
+        // 1回表示したことを記録
+        localStorage.setItem('mt_home_promo_seen', 'true');
+
+        // 7秒後に自動でエフェクトを終了（ずっと動いていると邪魔なため）
+        setTimeout(() => {
+          bubble.classList.remove('show');
+          btn.classList.remove('home-promo-active');
+        }, 5000);
+      }, 1500);
+    }
+
+    // 既存の window.onload もしくは最後に追記
+    const originalOnload = window.onload;
+    window.onload = () => {
+      if (originalOnload) originalOnload();
+      runHomePromotionOnce(); // 1回目だけ実行
+    };
+
+        // ── Service Worker ──
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    /* ================================================================
+     * ===========  MIN-Pro-AI  Playlist  Generator  =================
+     * ================================================================ */
+    (function() {
+      const GROQ_API_KEY = "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";
+      const MODEL_NAME   = "meta-llama/llama-4-scout-17b-16e-instruct";
+      const GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions";
+
+      const SYSTEM_PROMPT = (
+        "あなたはユーザーの好みからYoutubeの動画のプレイリストを作成するAIです\n" +
+        "【絶対厳守ルール】\n" +
+        "1. 回答は必ず、前置きや挨拶、余計な分なしで構成してください。\n" +
+        "2. 必ず6個以上の違った動画を推薦して　動画のタイトルの終わりには必ず.をつけてこちら側がそれぞれの動画タイトルを区別できるようにして"
+      );
+
+      const STEPS = [
+        "あなたの好みを分析しています...",
+        "MIN-Pro-AIが思考中...",
+        "「もしかしてコれが好きかも」と検討中...",
+        "タイトルを生成しています...",
+        "YouTubeを検索しています...",
+        "サムネイルを読み込んでいます...",
+        "プレイリストを組み立てています..."
+      ];
+
+      // 生成結果（グローバル、「動画を再生」ボタンから利用）
+      let lastAiPlaylist = null;
+
+      // ====== DOM 取得 ======
+      const chipBtn       = document.getElementById('chipAiPlaylist');
+      const promptModal   = document.getElementById('aiPromptModal');
+      const promptSub     = document.getElementById('aiPromptSubtext');
+      const modeTabs      = document.getElementById('aiModeTabs');
+      const keywordSec    = document.getElementById('aiKeywordSection');
+      const promptInput   = document.getElementById('aiPromptInput');
+      const suggestRow    = document.getElementById('aiSuggestRow');
+      const generateBtn   = document.getElementById('aiPromptGenerateBtn');
+      const loadingOver   = document.getElementById('aiLoadingOverlay');
+      const loaderTitle   = document.getElementById('aiLoaderTitle');
+      const loaderStep    = document.getElementById('aiLoaderStep');
+      const loaderBar     = document.getElementById('aiLoaderBar');
+      const doneModal     = document.getElementById('aiDoneModal');
+      const doneSub       = document.getElementById('aiDoneSub');
+      const doneList      = document.getElementById('aiDoneList');
+      const donePlayBtn   = document.getElementById('aiDonePlayBtn');
+
+      let currentMode = 'keyword'; // 'analyze' | 'keyword'
+
+      // ユーザーのローカルデータがあるかどうか判定
+      function hasLocalUserData() {
+        try {
+          const hist = JSON.parse(localStorage.getItem('mt_history') || '[]');
+          const liked = JSON.parse(localStorage.getItem('mt_liked') || '[]');
+          const subs = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('subscribed_') && localStorage.getItem(k) === 'true') subs.push(k);
+          }
+          return (hist.length > 0) || (liked.length > 0) || (subs.length > 0);
+        } catch { return false; }
+      }
+
+      // ローカルデータからユーザーの好みを抽出し、AI向け説明文を作る
+      function buildProfileSummary() {
+        let hist = [], liked = [];
+        try { hist = JSON.parse(localStorage.getItem('mt_history') || '[]'); } catch {}
+        try { liked = JSON.parse(localStorage.getItem('mt_liked') || '[]'); } catch {}
+
+        const channelCounter = {};
+        const titleSamples = [];
+        hist.slice(0, 40).forEach(h => {
+          if (h.channel) channelCounter[h.channel] = (channelCounter[h.channel] || 0) + 1;
+          if (h.title)   titleSamples.push(h.title);
+        });
+        liked.slice(0, 20).forEach(h => {
+          if (h.channel) channelCounter[h.channel] = (channelCounter[h.channel] || 0) + 2;
+          if (h.title)   titleSamples.push('[高評価] ' + h.title);
+        });
+        const subs = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('subscribed_') && localStorage.getItem(k) === 'true') {
+            subs.push(k.replace('subscribed_', ''));
+          }
+        }
+        subs.forEach(s => channelCounter[s] = (channelCounter[s] || 0) + 3);
+
+        const topChannels = Object.entries(channelCounter)
+          .sort((a,b) => b[1] - a[1]).slice(0, 10).map(x => x[0]);
+
+        return {
+          topChannels,
+          recentTitles: titleSamples.slice(0, 15),
+          subscribed: subs.slice(0, 10)
+        };
+      }
+
+      // ====== モーダル開閉 ======
+      function openAiPrompt() {
+        const hasData = hasLocalUserData();
+        if (hasData) {
+          modeTabs.style.display = 'flex';
+          promptSub.innerHTML = '既存のあなたの気になる単語からプレイリストを作成します。<br><b>MIN-Pro-AIがあなたの好みを分析しプレイリストを作成します</b>';
+          setMode('analyze');
+        } else {
+          modeTabs.style.display = 'none';
+          promptSub.innerHTML = 'あなたの好みの単語を入力してください。<b>MIN-Pro-AI</b>が最高のプレイリストを作成します。';
+          setMode('keyword');
+        }
+        promptInput.value = '';
+        suggestRow.querySelectorAll('.ai-suggest-chip').forEach(c => c.classList.remove('picked'));
+        promptModal.classList.add('open');
+        setTimeout(() => { if (currentMode === 'keyword') promptInput.focus(); }, 100);
+      }
+      function closeAiPrompt() { promptModal.classList.remove('open'); }
+      window.closeAiPrompt = closeAiPrompt;
+
+      function setMode(m) {
+        currentMode = m;
+        modeTabs.querySelectorAll('.ai-mode-tab').forEach(b => {
+          b.classList.toggle('active', b.dataset.mode === m);
+        });
+        keywordSec.style.display = (m === 'keyword') ? 'block' : 'none';
+      }
+
+      // 推薦単語チップ
+      suggestRow.addEventListener('click', (e) => {
+        const c = e.target.closest('.ai-suggest-chip');
+        if (!c) return;
+        c.classList.toggle('picked');
+        const picked = Array.from(suggestRow.querySelectorAll('.ai-suggest-chip.picked'))
+          .map(x => x.dataset.kw);
+        promptInput.value = picked.join(' ');
+      });
+
+      // モードタブ
+      modeTabs.addEventListener('click', (e) => {
+        const b = e.target.closest('.ai-mode-tab');
+        if (b && !b.disabled) setMode(b.dataset.mode);
+      });
+
+      // チップクリック
+      if (chipBtn) {
+        chipBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openAiPrompt();
+        }, true);
+      }
+
+      // Enterで生成
+      promptInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); generateBtn.click(); }
+      });
+
+      // ====== 生成ボタン ======
+      generateBtn.addEventListener('click', async () => {
+        let userMessage = '';
+        if (currentMode === 'analyze') {
+          const profile = buildProfileSummary();
+          if (profile.topChannels.length === 0 && profile.recentTitles.length === 0) {
+            // データがないのに分析モード→キーワードモードにフォールバック
+            setMode('keyword');
+            showToast('視聴履歴がありません。単語を入力してください');
+            return;
+          }
+          userMessage =
+            "以下はユーザーのYouTube視聴履歴と登録チャンネルの情報です。これをもとに、ユーザーが好きそうなYouTube動画のタイトルを複数推薦してください。\n" +
+            "よく見るチャンネル: " + (profile.topChannels.join('、') || 'なし') + "\n" +
+            "登録チャンネル: " + (profile.subscribed.join('、') || 'なし') + "\n" +
+            "最近視聴した動画のタイトル例:\n - " + (profile.recentTitles.slice(0,12).join('\n - ') || 'なし') + "\n\n" +
+            "上記の傾向を踏まえ、ユーザーが受けそうなYouTube動画のタイトルを、6個以上、それぞれのタイトルの終わりに「.」をつけて出力してください。";
+        } else {
+          const kw = promptInput.value.trim();
+          if (!kw) { showToast('単語を入力してください'); promptInput.focus(); return; }
+          userMessage =
+            "ユーザーの好みの単語: " + kw + "\n\n" +
+            "この好みに合わYouTube動画のタイトルを、6個以上、それぞれのタイトルの終わりに「.」をつけて出力してください。";
+        }
+
+        closeAiPrompt();
+        await runAiPipeline(userMessage);
+      });
+
+      // ====== メインパイプライン ======
+      async function runAiPipeline(userMessage) {
+        showLoader();
+        animateLoader(0, 8);
+
+        let titles = [];
+        try {
+          updateStep(1); setBar(15);
+          const aiText = await callGroq(userMessage);
+          updateStep(2); setBar(25);
+          // 「.」でタイトルを抽出し、余分な記号や番号を除去
+          titles = parseTitlesFromAi(aiText);
+          if (titles.length === 0) throw new Error('AIからタイトルを抽出できませんでした');
+        } catch (err) {
+          hideLoader();
+          showToast('AIエラー: ' + (err.message || err));
+          console.error('AI generation error', err);
+          return;
+        }
+
+        updateStep(3); setBar(40);
+
+        // タイトルごとに /api/1-search?q=... をフェッチし、ヒットした動画をプレイリストに追加
+        const items = [];
+        const total = titles.length;
+        for (let i = 0; i < total; i++) {
+          updateStep(4, '「' + truncate(titles[i], 24) + '」を検索中...');
+          setBar(40 + Math.floor(45 * (i / total)));
+          try {
+            const v = await searchSingleVideo(titles[i]);
+            if (v && v.id) items.push(v);
+          } catch (e) { /* skip */ }
+        }
+
+        if (items.length === 0) {
+          hideLoader();
+          showToast('動画を取得できませんでした');
+          return;
+        }
+
+        updateStep(5); setBar(90);
+
+        // プレイリストを作成して保存
+        const plName = makePlaylistName(userMessage);
+        const newPl = createAiPlaylist(plName, items);
+        lastAiPlaylist = newPl;
+
+        updateStep(6); setBar(100);
+        await sleep(450);
+        hideLoader();
+        showAiDone(newPl);
+      }
+
+      function truncate(s, n) { s = String(s||''); return s.length>n ? s.slice(0,n)+'…' : s; }
+      function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+      // ====== Groq 呼び出し ======
+      async function callGroq(userMessage) {
+        const res = await fetch(GROQ_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + GROQ_API_KEY,
+            'Content-Type':  'application/json'
+          },
+          body: JSON.stringify({
+            model: MODEL_NAME,
+            messages: [
+              { role: 'system', content: SYSTEM_PROMPT },
+              { role: 'user',   content: userMessage }
+            ],
+            temperature: 0.85,
+            max_tokens: 700
+          })
+        });
+        if (!res.ok) {
+          const t = await res.text().catch(()=>'');
+          throw new Error('Groq API ' + res.status + ' ' + t.slice(0,160));
+        }
+        const data = await res.json();
+        return (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+      }
+
+      // AI出力から「.」区切りでタイトルを抽出
+      function parseTitlesFromAi(text) {
+        if (!text) return [];
+        // コードブロックや余分なマークダウンを取り除く
+        text = text.replace(/```[\s\S]*?```/g, ' ').replace(/\*\*/g, '');
+        // 「.」で区切る。URLのドットは含まないのでそのまま分割でよい
+        let parts = text.split('.');
+        const out = [];
+        for (let p of parts) {
+          let t = p
+            .replace(/^[\s\r\n]+|[\s\r\n]+$/g, '')
+            // 先頭の番号や記号を除去
+            .replace(/^[\-\*\u30fb\u2022\u25cf\u25cb\u3000]+/, '')
+            .replace(/^\d+\s*[\.\u3001\)\u3002]?\s*/, '')
+            .replace(/^[\"\u300c\u300e\u3010\[\(]+/, '')
+            .replace(/[\"\u300d\u300f\u3011\]\)]+$/, '')
+            .trim();
+          if (!t) continue;
+          if (t.length < 3) continue;
+          if (t.length > 120) t = t.slice(0, 120);
+          // 明らかに本文フレーズだけのもの（コロンを含む長文など）も採用
+          out.push(t);
+        }
+        // 重複除去
+        const seen = new Set();
+        const uniq = [];
+        for (const t of out) {
+          const key = t.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          uniq.push(t);
+          if (uniq.length >= 12) break;
+        }
+        return uniq;
+      }
+
+      // ====== /api/1-search で単一動画を取得 ======
+      async function searchSingleVideo(query) {
+        const url = '/api/1-search?q=' + encodeURIComponent(query);
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        let data;
+        try { data = await res.json(); } catch { return null; }
+
+        // 1-searchは、単一オブジェクト、または { items: [...] } を返す可能性がある
+        let v = data;
+        if (data && data.items && data.items.length) v = data.items[0];
+        if (!v) return null;
+
+        // idを抽出
+        let id = null;
+        if (typeof v.id === 'string') id = v.id;
+        else if (v.id && typeof v.id === 'object') id = v.id.videoId || v.videoId || null;
+        else if (v.videoId) id = v.videoId;
+        if (!id) return null;
+
+        const title   = v.title || query;
+        const channel = v.channelTitle
+          || (v.shortBylineText && v.shortBylineText.runs && v.shortBylineText.runs[0] && v.shortBylineText.runs[0].text)
+          || '';
+        const length  = (v.length && v.length.simpleText) || v.lengthText || '';
+
+        return { id, title, channel, length, addedAt: Date.now() };
+      }
+
+      // ====== プレイリスト作成（既存 mt_playlists に保存）======
+      function createAiPlaylist(name, items) {
+        let pls = [];
+        try { pls = JSON.parse(localStorage.getItem('mt_playlists') || '[]'); } catch {}
+        const pl = {
+          id: 'ai_' + Date.now().toString(36),
+          name: name,
+          items: items.map(it => ({
+            id: it.id,
+            title: it.title,
+            channel: it.channel,
+            length: it.length,
+            ts: Date.now()
+          })),
+          createdAt: Date.now(),
+          createdBy: 'MIN-Pro-AI'
+        };
+        pls.push(pl);
+        localStorage.setItem('mt_playlists', JSON.stringify(pls));
+        return pl;
+      }
+
+      function makePlaylistName(userMessage) {
+        const stamp = new Date().toLocaleString('ja-JP', {
+          month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'
+        });
+        return 'MIN-Pro-AI プレイリスト (' + stamp + ')';
+      }
+
+      // ====== ローダー制御 ======
+      function showLoader() {
+        loadingOver.classList.add('open');
+        loaderBar.style.width = '0%';
+      }
+      function hideLoader() {
+        loadingOver.classList.remove('open');
+      }
+      function updateStep(idx, override) {
+        const text = override || STEPS[idx] || STEPS[STEPS.length-1];
+        loaderStep.style.opacity = '0';
+        setTimeout(() => {
+          loaderStep.textContent = text;
+          loaderStep.style.opacity = '1';
+        }, 180);
+      }
+      function setBar(pct) {
+        loaderBar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+      }
+      function animateLoader(idx, total) {
+        updateStep(0); setBar(8);
+      }
+
+      // ====== 完了モーダル ======
+      function showAiDone(pl) {
+        doneSub.innerHTML = '<b>' + pl.name + '</b><br>' + pl.items.length + ' 本の動画をライブラリへ保存しました';
+        doneList.innerHTML = pl.items.map(it => {
+          const safeT = (it.title || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          const safeC = (it.channel || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          const thumb = (typeof getThumbUrl === 'function') ? getThumbUrl(it.id, 'mq')
+                       : ('https://i3.ytimg.com/vi/' + it.id + '/mqdefault.jpg');
+          return '<div class="ai-done-item">' +
+                   '<img src="' + thumb + '" loading="lazy" alt="">' +
+                   '<div class="t"><div style="font-weight:500;">' + safeT + '</div>' +
+                     '<div style="font-size:11px;color:var(--text-muted);">' + safeC + '</div></div>' +
+                 '</div>';
+        }).join('');
+        doneModal.classList.add('open');
+      }
+      function closeAiDone() { doneModal.classList.remove('open'); }
+      window.closeAiDone = closeAiDone;
+
+      // 「動画を再生」ボタン
+      donePlayBtn.addEventListener('click', () => {
+        if (!lastAiPlaylist) return;
+        openAiPlayerPage(lastAiPlaylist);
+      });
+
+      /* ================================================================
+       * ===========  プレイヤーページ (別タブで開く) ==========
+       * ================================================================
+       * /360/動画ID から生の動画ストリームURL(text)を取得し、
+       * <video src="..."> で再生、終了したら自動で次の動画へ
+       */
+      function openAiPlayerPage(pl) {
+        const html = buildPlayerHtml(pl);
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      }
+
+      function buildPlayerHtml(pl) {
+        // pl を安全に JSON シリアライズして埋め込む
+        const plJson = JSON.stringify(pl).replace(/</g,'\\u003c').replace(/-->/g,'--\\u003e');
+        return [
+'<!DOCTYPE html>',
+'<html lang="ja"><head><meta charset="utf-8">',
+'<meta name="viewport" content="width=device-width,initial-scale=1">',
+'<title>' + escHtml(pl.name) + ' - MIN-Tube-Pro</title>',
+'<style>',
+'  *{box-sizing:border-box;margin:0;padding:0}',
+'  body{background:#0f0f0f;color:#f1f1f1;font-family:Roboto,Arial,sans-serif;min-height:100vh;}',
+'  .wrap{display:grid;grid-template-columns:1fr 380px;gap:20px;padding:20px;max-width:1600px;margin:0 auto;}',
+'  @media(max-width:960px){.wrap{grid-template-columns:1fr;}}',
+'  .player-side{min-width:0}',
+'  .video-shell{background:#000;border-radius:12px;overflow:hidden;position:relative;aspect-ratio:16/9;}',
+'  video{width:100%;height:100%;display:block;background:#000;}',
+'  .video-status{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;background:rgba(0,0,0,0.6);font-size:14px;flex-direction:column;gap:10px;}',
+'  .video-status.hidden{display:none}',
+'  .spinner{width:42px;height:42px;border:3px solid rgba(255,255,255,0.2);border-top-color:#9B72CB;border-radius:50%;animation:sp 1s linear infinite;}',
+'  @keyframes sp{to{transform:rotate(360deg)}}',
+'  .now{margin-top:14px;}',
+'  .now h1{font-size:20px;font-weight:600;line-height:1.35;margin-bottom:6px;}',
+'  .now .ch{font-size:13px;color:#aaa;}',
+'  .controls{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}',
+'  .ctl{background:#272727;color:#f1f1f1;border:none;padding:8px 14px;border-radius:18px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}',
+'  .ctl:hover{background:#3f3f3f;}',
+'  .ctl.primary{background:linear-gradient(110deg,#4285F4,#9B72CB,#D96570);color:#fff;font-weight:600;}',
+'  .pl-side{background:#1c1c1c;border-radius:12px;padding:14px;max-height:calc(100vh - 40px);overflow:auto;}',
+'  .pl-head{font-size:14px;font-weight:600;margin-bottom:4px;}',
+'  .pl-sub{font-size:12px;color:#aaa;margin-bottom:12px;}',
+'  .pl-item{display:flex;gap:10px;padding:8px;border-radius:8px;cursor:pointer;align-items:center;transition:background .15s;}',
+'  .pl-item:hover{background:#272727;}',
+'  .pl-item.active{background:linear-gradient(110deg,rgba(66,133,244,0.18),rgba(155,114,203,0.18));border-left:3px solid #9B72CB;padding-left:5px;}',
+'  .pl-thumb{width:80px;height:46px;background:#000;border-radius:6px;overflow:hidden;flex-shrink:0;position:relative;}',
+'  .pl-thumb img{width:100%;height:100%;object-fit:cover;display:block;}',
+'  .pl-thumb .idx{position:absolute;left:4px;top:4px;background:rgba(0,0,0,0.7);color:#fff;font-size:10px;padding:2px 5px;border-radius:3px;}',
+'  .pl-info{flex:1;min-width:0;}',
+'  .pl-info .t{font-size:12.5px;font-weight:500;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}',
+'  .pl-info .c{font-size:11px;color:#aaa;margin-top:2px;}',
+'  .pl-item.played .pl-info .t{opacity:.55;}',
+'  .err{color:#ff6b6b;font-size:13px;text-align:center;padding:14px;}',
+'  .branding{position:fixed;left:14px;top:12px;font-size:13px;font-weight:700;background:linear-gradient(110deg,#4285F4,#9B72CB,#D96570,#F0A858);-webkit-background-clip:text;background-clip:text;color:transparent;}',
+'</style></head>',
+'<body>',
+'<div class="branding">✨ MIN-Tube-Pro / AI Playlist Player</div>',
+'<div class="wrap">',
+'  <div class="player-side">',
+'    <div class="video-shell">',
+'      <video id="vid" controls autoplay playsinline></video>',
+'      <div class="video-status" id="vstat"><div class="spinner"></div><div id="vstattxt">動画ストリームを取得中...</div></div>',
+'    </div>',
+'    <div class="now">',
+'      <h1 id="nowTitle"></h1>',
+'      <div class="ch" id="nowCh"></div>',
+'      <div class="controls">',
+'        <button class="ctl" id="prevBtn">⏮ 前へ</button>',
+'        <button class="ctl primary" id="nextBtn">次の動画 ⏭</button>',
+'        <button class="ctl" id="shuffleBtn">🔀 シャッフル</button>',
+'        <button class="ctl" id="repeatBtn">🔁 リピート: OFF</button>',
+'      </div>',
+'    </div>',
+'  </div>',
+'  <aside class="pl-side">',
+'    <div class="pl-head" id="plHead"></div>',
+'    <div class="pl-sub" id="plSub"></div>',
+'    <div id="plList"></div>',
+'  </aside>',
+'</div>',
+'<script>',
+'  const PLAYLIST = ' + plJson + ';',
+'  const items = PLAYLIST.items || [];',
+'  let idx = 0;',
+'  let shuffle = false;',
+'  let repeat  = false;',
+'  const vid    = document.getElementById("vid");',
+'  const vstat  = document.getElementById("vstat");',
+'  const vstattxt = document.getElementById("vstattxt");',
+'  const nowTitle = document.getElementById("nowTitle");',
+'  const nowCh    = document.getElementById("nowCh");',
+'  const plList = document.getElementById("plList");',
+'  document.getElementById("plHead").textContent = PLAYLIST.name || "プレイリスト";',
+'  document.getElementById("plSub").textContent  = items.length + " 本の動画";',
+'  function thumb(id){ return "https://i3.ytimg.com/vi/" + id + "/mqdefault.jpg"; }',
+'  function escH(s){ s=String(s||""); return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }',
+'  function renderList(){',
+'    plList.innerHTML = items.map((it,i) => {',
+'      return "<div class=\\"pl-item "+(i===idx?"active":"")+(i<idx?" played":"")+"\\" data-i=\\""+i+"\\">" +',
+'        "<div class=\\"pl-thumb\\"><img src=\\""+thumb(it.id)+"\\" loading=\\"lazy\\"><div class=\\"idx\\">"+(i+1)+"</div></div>" +',
+'        "<div class=\\"pl-info\\"><div class=\\"t\\">"+escH(it.title)+"</div><div class=\\"c\\">"+escH(it.channel||"")+"</div></div>" +',
+'      "</div>";',
+'    }).join("");',
+'    plList.querySelectorAll(".pl-item").forEach(el => {',
+'      el.addEventListener("click", () => { idx = parseInt(el.dataset.i,10); loadCurrent(); });',
+'    });',
+'  }',
+'  function showStat(msg, err){',
+'    vstat.classList.remove("hidden");',
+'    if(err){ vstat.innerHTML = "<div class=\\"err\\">"+escH(msg)+"</div><button class=\\"ctl\\" onclick=\\"next()\\">次の動画へ</button>"; }',
+'    else   { vstat.innerHTML = "<div class=\\"spinner\\"></div><div>"+escH(msg)+"</div>"; }',
+'  }',
+'  function hideStat(){ vstat.classList.add("hidden"); }',
+'  async function loadCurrent(){',
+'    if(items.length === 0) return;',
+'    if(idx < 0) idx = items.length - 1;',
+'    if(idx >= items.length){',
+'      if(repeat){ idx = 0; }',
+'      else { showStat("すべての動画の再生が終了しました。", true); return; }',
+'    }',
+'    const it = items[idx];',
+'    nowTitle.textContent = it.title || "";',
+'    nowCh.textContent    = it.channel || "";',
+'    renderList();',
+'    showStat("動画ストリームを取得中...");',
+'    try{',
+'      vid.pause();',
+'      vid.removeAttribute("src");',
+'      vid.load();',
+'      const res = await fetch("/360/" + encodeURIComponent(it.id));',
+'      if(!res.ok) throw new Error("HTTP " + res.status);',
+'      const txt = (await res.text()).trim();',
+'      if(!txt || !/^https?:\\/\\//i.test(txt)){',
+'        throw new Error("ストリームURLを取得できませんでした");',
+'      }',
+'      vid.src = txt;',
+'      vid.play().catch(()=>{});',
+'      hideStat();',
+'    }catch(e){',
+'      console.error(e);',
+'      showStat("エラー: " + (e.message||e) + " — 次へスキップします...", true);',
+'      setTimeout(()=>{ next(); }, 1800);',
+'    }',
+'  }',
+'  function next(){',
+'    if(shuffle){ idx = Math.floor(Math.random()*items.length); }',
+'    else { idx++; }',
+'    loadCurrent();',
+'  }',
+'  function prev(){ idx--; loadCurrent(); }',
+'  vid.addEventListener("ended", () => { next(); });',
+'  vid.addEventListener("error", () => { showStat("動画の読み込みに失敗しました", true); setTimeout(()=>next(), 1500); });',
+'  document.getElementById("nextBtn").addEventListener("click", next);',
+'  document.getElementById("prevBtn").addEventListener("click", prev);',
+'  document.getElementById("shuffleBtn").addEventListener("click", (e) => {',
+'    shuffle = !shuffle;',
+'    e.currentTarget.style.background = shuffle ? "linear-gradient(110deg,#4285F4,#9B72CB)" : "";',
+'    e.currentTarget.style.color = shuffle ? "#fff" : "";',
+'  });',
+'  document.getElementById("repeatBtn").addEventListener("click", (e) => {',
+'    repeat = !repeat;',
+'    e.currentTarget.textContent = repeat ? "🔁 リピート: ON" : "🔁 リピート: OFF";',
+'  });',
+'  if(items.length === 0){ showStat("プレイリストが空です", true); }',
+'  else { loadCurrent(); }',
+'<\/script>',
+'</body></html>'
+        ].join('\n');
+      }
+
+      function escHtml(s){
+        return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');
+      }
+
+      // パブリック公開（他のスクリプトからも使えるように）
+      window.openAiPlaylistModal = openAiPrompt;
+      window.openAiPlayerPage = openAiPlayerPage;
+    })();
+
+  </script>
+  
+  <nav class="mobile-bottom-nav">
+  <a href="/" class="mobile-nav-item active">
+    <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    ホーム
+  </a>
+  <a href="#" class="mobile-nav-item" data-q="shorts">
+    <svg viewBox="0 0 24 24"><path d="M17.77 10.32l-1.2-.5L18 9.06c1.84-.96 2.53-3.23 1.56-5.06s-3.23-2.53-5.06-1.56L6 6.94c-1.29.68-2.07 2.04-2 3.49.07 1.4.93 2.67 2.22 3.25L7.42 14 6 14.75c-1.84.96-2.53 3.23-1.56 5.06.65 1.27 1.94 2 3.31 2 .58 0 1.18-.14 1.75-.44L17 17.06c1.29-.68 2.07-2.04 2-3.49-.07-1.4-.93-2.67-2.23-3.25zM10 14.65V9.35L15 12l-5 2.65z"/></svg>
+    ショート
+  </a>
+  <button class="mobile-nav-item" onclick="openDrawer('history')">
+    <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 1 0 0 18A9 9 0 0 0 13 3zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7zm.5-11H12v6l5.25 3.15.75-1.23-4.5-2.67V8z"/></svg>
+    履歴
+  </button>
+  <button class="mobile-nav-item" onclick="openDrawer('searchHistory')">
+    <svg viewBox="0 0 24 24"><path d="M20.87 20.17l-5.59-5.59C16.35 13.35 17 11.75 17 10c0-3.87-3.13-7-7-7s-7 3.13-7 7 3.13 7 7 7c1.75 0 3.35-.65 4.58-1.71l5.59 5.59.7-.71zM10 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+    検索履歴
+  </button>
+  <button class="mobile-nav-item" onclick="openDrawer('playlists')">
+    <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+    ライブラリ
+  </button>
+</nav>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
