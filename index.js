@@ -970,7 +970,7 @@ app.get('/360/:videoId',async(req,res)=>{const videoId=req.params.videoId;const 
 app.get('/scratch-edu/:id', async (req, res) => {
   const id = req.params.id;
 
-  const configUrl = 'https://raw.githubusercontent.com/siawaseok3/wakame/master/video_config.json';
+  const configUrl = 'https://raw.githubusercontent.com/wista-api-project/auto/refs/heads/main/edu/2.txt';
   const configRes = await fetch(configUrl);
   const configJson = await configRes.json();
   const params = configJson.params; 
@@ -984,7 +984,7 @@ app.get('/scratch-edu/:id', async (req, res) => {
 app.get('/kahoot-edu/:id', async (req, res) => {
   const id = req.params.id;
 
-  const paramUrl = 'https://raw.githubusercontent.com/wista-api-project/auto/refs/heads/main/edu/1.txt';
+  const paramUrl = 'https://raw.githubusercontent.com/wista-api-project/auto/refs/heads/main/edu/3.txt';
   const response = await fetch(paramUrl);
   const params = await response.text(); 
 
