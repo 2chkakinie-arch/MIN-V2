@@ -1,3 +1,12 @@
+# minoの活動停止に伴い、このプロジェクトはforkである[min-wlyt](https://github.com/woolisbest-honke/min-wlyt-plus)に移行します。
+
+
+
+
+
+
+
+
 # MIN-Tube-Pro
 
 CG / YouTube web app.  
