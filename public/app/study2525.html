@@ -909,7 +909,6 @@ let isFetching = false;
 let lastQuery = '';
 let captchaTimer = null;
 const seenVideoIds = new Set();
-const KAHOOT_KEY_URL = 'https://apis.kahoot.it/media-api/youtube/key';
 const CORS_PROXIES = [
   'https://api.codetabs.com/v1/proxy?quest=',
   'https://api.codetabs.com/v1/tmp/?quest='
@@ -962,7 +961,6 @@ function buildFetchUrl(targetUrl) {
   }
   return targetUrl;
 }
-
 
 function initApp() {
   const config = getAppConfig();
@@ -1028,43 +1026,6 @@ function handleWelcomeSearch(e) {
   document.getElementById('search-input').value = q;
   saveSettings();
   handleSearch(e, q);
-}
-
-async function fetchKahootKey() {
-  const url = buildFetchUrl(KAHOOT_KEY_URL);
-  try {
-    const res = await fetch(url);
-    if (res.ok) {
-      const data = await res.json();
-      return data.key || data.enc || data;
-    }
-  } catch(e) {}
-  
-  if(getAppConfig().proxy) {
-    for (const proxy of CORS_PROXIES) {
-      try {
-        const res = await fetch(proxy + encodeURIComponent(KAHOOT_KEY_URL));
-        if (res.ok) {
-          const data = await res.json();
-          return data.key || data.enc || data;
-        }
-      } catch(e) {}
-    }
-  }
-  return null;
-}
-
-function buildEduUrl(videoId, enc) {
-  const embedConfig = encodeURIComponent(JSON.stringify({ enc: enc, hideTitle: true }));
-  const params = {
-    autoplay: '1', mute: '0', controls: '1', start: '0', origin: encodeURIComponent('https://create.kahoot.it'),
-    playsinline: '1', showinfo: '0', rel: '0', iv_load_policy: '3', modestbranding: '1',
-    fs: '1', cc_load_policy: '0', enablejsapi: '1', widgetid: '1',
-    forigin: encodeURIComponent('https://create.kahoot.it/learner/cb8cb5ae-d835-4c4a-bc2d-9cc78519d646/course/6fba06e3-1f76-47a8-9a4a-53c53eb86286/0'),
-    aoriginsup: '1', vf: '6'
-  };
-  const qs = Object.keys(params).map(k => `${k}=${params[k]}`).join('&');
-  return `https://www.youtubeeducation.com/embed/${videoId}?${qs}&embed_config=${embedConfig}`;
 }
 
 window.__gcse = {
@@ -1207,7 +1168,6 @@ async function playVideo(id, title) {
   document.getElementById('watch-title-text').innerText = title;
   document.getElementById('related-videos').innerHTML = '';
   
-  // 概要欄のリセット
   document.getElementById('api-views').innerText = "---";
   document.getElementById('api-likes').innerText = "---";
   document.getElementById('api-date').innerText = "";
@@ -1261,7 +1221,6 @@ async function fetchVideoApiDetails(videoId) {
       document.getElementById('api-date').innerText = ` • ${pubDate}`;
     }
 
-    // 改行コード(\n)を<br>に変換して表示
     document.getElementById('api-desc').innerHTML = videoDes.replace(/\n/g, '<br>');
   } catch(e) {
     document.getElementById('api-desc').innerText = "概要の取得に失敗しました。";
@@ -1276,15 +1235,29 @@ async function switchStream(type) {
   const wrapper = document.getElementById('player-wrapper');
   
   if (type === 1 || type === 2) {
-    wrapper.innerHTML = '<iframe id="yt-player" allow="autoplay; fullscreen" allowfullscreen></iframe>';
-    const player = document.getElementById('yt-player');
     if(type === 1) {
+      wrapper.innerHTML = '<iframe id="yt-player" allow="autoplay; fullscreen" allowfullscreen></iframe>';
+      const player = document.getElementById('yt-player');
       player.src = `https://www.youtube-nocookie.com/embed/${currentVideoId}?autoplay=1&rel=0`;
     } else {
-      player.src = '';
-      const key = await fetchKahootKey();
-      if (key) player.src = buildEduUrl(currentVideoId, key);
-      else {
+      wrapper.innerHTML = '<div class="loader">Eduストリームを準備中...</div>';
+      try {
+        const res = await fetch('https://raw.githubusercontent.com/wista-api-project/auto/refs/heads/main/edu/1.txt');
+        if (!res.ok) throw new Error("GitHubからのパラメータ取得に失敗");
+        
+        let params = await res.text();
+        params = params.trim().replace(/&amp;/g, '&');
+        
+        if (!params.startsWith('?')) {
+          params = '?' + params;
+        }
+
+        wrapper.innerHTML = '<iframe id="yt-player" allow="autoplay; fullscreen" allowfullscreen></iframe>';
+        const player = document.getElementById('yt-player');
+        player.src = `https://www.youtubeeducation.com/embed/${currentVideoId}${params}`;
+        
+      } catch(e) {
+        console.error(e);
         alert("Eduストリームの準備中です。しばらくしてからもう一度お試しください。");
         switchStream(1);
       }

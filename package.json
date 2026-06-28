@@ -1,7 +1,7 @@
 {
-  "name": "min-tube-2",
+  "name": "min-wlyt-plus",
   "version": "1.0.0",
-  "description": "MIN-Tube2 is smart youtube watcher",
+  "description": "min-wlyt-plus is smart youtube watcher",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -13,7 +13,7 @@
     "express",
     "nodejs"
   ],
-  "author": "mino",
+  "author": "mino woolisbest",
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
