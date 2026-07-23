@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>MIN-Tube-Pro — The Ultimate Hub</title>
+<title>MIN-Tube-Pro — Hub</title>
 
 <!-- PWA -->
 <link rel="manifest" href="/manifest.json" />
-<meta name="theme-color" content="#00d4ff" />
+<meta name="theme-color" content="#0ea5e9" />
 
 <!-- iOS / Safari -->
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -23,26 +23,27 @@
 <meta property="og:image" content="/min-img.png" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 
 <style>
   :root {
-    --bg-dark: #020612;
-    --bg-gradient: radial-gradient(circle at 50% 0%, #0a132a 0%, #020612 100%);
-    --accent: #00d4ff;
-    --accent-glow: rgba(0, 212, 255, 0.4);
-    --accent2: #7b61ff;
-    --accent3: #ff6fd8;
-    --text: #e2e8f0;
-    --text-dim: #94a3b8;
-    --card-bg: rgba(15, 23, 42, 0.6);
-    --card-border: rgba(255, 255, 255, 0.08);
-    --glass-blur: 18px;
-    --radius-lg: 24px;
-    --radius-md: 16px;
-    --transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    --bg-dark: #030712;
+    --bg-gradient: radial-gradient(ellipse at 50% -20%, #1e1b4b 0%, #030712 100%);
+    --accent: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.15);
+    --accent2: #818cf8;
+    --text: #f3f4f6;
+    --text-dim: #9ca3af;
+    --card-bg: rgba(17, 24, 39, 0.4);
+    --card-border: rgba(255, 255, 255, 0.05);
+    --glass-blur: 20px;
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     --green: #10b981;
-    --red: #f43f5e;
+    --green-glow: rgba(16, 185, 129, 0.4);
+    --red: #ef4444;
+    --red-glow: rgba(239, 68, 68, 0.4);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -51,10 +52,11 @@
     background: var(--bg-dark);
     background-image: var(--bg-gradient);
     color: var(--text);
-    font-family: 'Syne', 'Noto Sans JP', sans-serif;
+    font-family: 'Plus Jakarta Sans', 'Noto Sans JP', sans-serif;
     line-height: 1.6;
     overflow-x: hidden;
     min-height: 100vh;
+    letter-spacing: -0.01em;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -69,63 +71,63 @@
   .orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.15;
-    animation: float 20s infinite alternate;
+    filter: blur(120px);
+    opacity: 0.12;
+    animation: float 25s infinite alternate ease-in-out;
   }
-  .orb-1 { width: 400px; height: 400px; background: var(--accent); top: -100px; left: -100px; }
-  .orb-2 { width: 300px; height: 300px; background: var(--accent2); bottom: 10%; right: -50px; animation-delay: -5s; }
+  .orb-1 { width: 500px; height: 500px; background: var(--accent); top: -150px; left: -100px; }
+  .orb-2 { width: 400px; height: 400px; background: var(--accent2); bottom: 5%; right: -100px; animation-delay: -7s; }
   
   @keyframes float {
-    0% { transform: translate(0, 0); }
-    100% { transform: translate(40px, 60px); }
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(60px, 40px) scale(1.1); }
   }
 
   .wrap {
-    max-width: 1200px;
+    max-width: 1140px;
     margin: 0 auto;
-    padding: calc(40px + env(safe-area-inset-top)) 24px calc(60px + env(safe-area-inset-bottom));
+    padding: calc(60px + env(safe-area-inset-top)) 24px calc(80px + env(safe-area-inset-bottom));
   }
 
   /* ── Hero ── */
   header.hero {
     display: flex;
     align-items: center;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.01);
     backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--card-border);
     border-radius: var(--radius-lg);
-    padding: 32px;
-    margin-bottom: 48px;
+    padding: 40px;
+    margin-bottom: 56px;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
   }
 
   header.hero::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; width: 4px; height: 100%;
-    background: linear-gradient(to bottom, var(--accent), var(--accent2));
+    top: 0; left: 0; width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
   }
 
   .logo-area {
-    margin-right: 28px;
+    margin-right: 32px;
     position: relative;
   }
 
   .logo-img {
-    width: 80px; height: 80px;
-    border-radius: 20px;
-    box-shadow: 0 0 25px var(--accent-glow);
-    border: 2px solid rgba(255,255,255,0.1);
+    width: 72px; height: 72px;
+    border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255,255,255,0.1);
   }
 
   .hero-content h1 {
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 800;
-    letter-spacing: -0.5px;
-    background: linear-gradient(to right, #fff, #a5b4fc);
+    letter-spacing: -0.03em;
+    background: linear-gradient(to bottom, #ffffff 40%, #cbd5e1 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -135,82 +137,90 @@
     height: 24px;
     display: flex;
     align-items: center;
-    margin-top: 6px;
+    margin-top: 8px;
   }
 
   .typewriter {
     font-size: 14px;
     color: var(--accent);
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    opacity: 0.9;
   }
 
-  /* ── Legend & Filter ── */
+  /* ── Toolbar ── */
   .toolbar {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 24px;
-    padding: 0 8px;
+    align-items: center;
+    margin-bottom: 28px;
+    padding: 0 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    padding-bottom: 16px;
   }
 
   .section-label {
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 0.15em;
     color: var(--text-dim);
   }
 
   .status-legend {
     display: flex;
-    gap: 16px;
-    font-size: 11px;
-    font-weight: 600;
+    gap: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
   }
-  .legend-item { display: flex; align-items: center; gap: 6px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; }
-  .dot.done { background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .dot.wip { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot.done { background: var(--green); box-shadow: 0 0 10px var(--green-glow); }
+  .dot.wip { background: var(--red); box-shadow: 0 0 10px var(--red-glow); }
 
   /* ── Category Section ── */
   .category-section {
-    margin-bottom: 40px;
+    margin-bottom: 48px;
   }
 
   .category-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 14px;
+    margin-bottom: 24px;
   }
 
   .cat-icon {
-    width: 36px; height: 36px;
-    background: rgba(255,255,255,0.05);
+    width: 34px; height: 34px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .cat-title {
     font-size: 18px;
-    font-weight: 700;
-    color: #fff;
+    font-weight: 600;
+    color: #f3f4f6;
+    letter-spacing: -0.02em;
   }
 
   .cat-line {
     flex: 1;
     height: 1px;
-    background: linear-gradient(90deg, rgba(255,255,255,0.1), transparent);
+    background: linear-gradient(90deg, rgba(255,255,255,0.05), transparent);
   }
 
   .cat-count {
-    font-size: 12px;
-    padding: 2px 10px;
-    background: rgba(255,255,255,0.05);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
     border-radius: 20px;
     color: var(--text-dim);
   }
@@ -218,8 +228,8 @@
   /* ── Modern Grid Layout ── */
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 24px;
   }
 
   /* ── Card Design ── */
@@ -234,15 +244,16 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    backdrop-filter: blur(10px);
+    gap: 20px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
   .card:hover {
-    transform: translateY(-8px) scale(1.01);
-    background: rgba(30, 41, 59, 0.7);
-    border-color: rgba(0, 212, 255, 0.3);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 212, 255, 0.1);
+    transform: translateY(-4px);
+    background: rgba(23, 30, 49, 0.5);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.1);
   }
 
   .card-top {
@@ -252,31 +263,33 @@
   }
 
   .app-icon {
-    width: 56px; height: 56px;
-    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.03));
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 14px;
+    width: 48px; height: 48px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 26px;
+    font-size: 22px;
     flex-shrink: 0;
     transition: var(--transition);
   }
 
   .card:hover .app-icon {
-    transform: rotate(-5deg) scale(1.1);
-    border-color: var(--accent);
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.2);
+    transform: scale(1.05);
   }
 
   .app-info {
     flex: 1;
+    overflow: hidden;
   }
 
   .app-name {
-    font-size: 17px;
-    font-weight: 700;
-    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -295,35 +308,36 @@
     align-items: center;
     margin-top: auto;
     padding-top: 16px;
-    border-top: 1px solid rgba(255,255,255,0.05);
+    border-top: 1px solid rgba(255,255,255,0.03);
   }
 
   .app-path {
-    font-family: 'Syne', monospace;
+    font-family: monospace;
     font-size: 11px;
-    background: rgba(0, 212, 255, 0.1);
-    color: var(--accent);
-    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+    padding: 3px 8px;
     border-radius: 6px;
-    font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.02);
   }
 
   .app-badge {
     font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     color: var(--text-dim);
     padding: 3px 8px;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 5px;
   }
 
   /* ── Pulse Animation ── */
   .status-indicator {
-    width: 8px; height: 8px;
+    width: 6px; height: 6px;
     border-radius: 50%;
     position: relative;
+    flex-shrink: 0;
   }
   .status-indicator.done { background: var(--green); }
   .status-indicator.wip { background: var(--red); }
@@ -333,11 +347,19 @@
     inset: 0;
     border-radius: 50%;
     background: var(--green);
-    animation: pulse 2s infinite;
+    animation: pulse 2.5s infinite;
+  }
+  .status-indicator.wip::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--red);
+    animation: pulse 2.5s infinite;
   }
   @keyframes pulse {
-    0% { transform: scale(1); opacity: 0.8; }
-    100% { transform: scale(3); opacity: 0; }
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(3.5); opacity: 0; }
   }
 
   /* ── Responsive ── */
@@ -345,33 +367,32 @@
     header.hero {
       flex-direction: column;
       text-align: center;
-      padding: 32px 20px;
+      padding: 32px 24px;
+      gap: 16px;
     }
-    header.hero::before {
-      width: 100%; height: 4px;
-      background: linear-gradient(to right, var(--accent), var(--accent2));
-    }
-    .logo-area { margin-right: 0; margin-bottom: 16px; }
+    .logo-area { margin-right: 0; }
+    .hero-content h1 { font-size: 26px; }
+    .typewriter-container { justify-content: center; }
     .grid {
       grid-template-columns: 1fr;
       gap: 16px;
     }
     .toolbar {
       flex-direction: column;
-      align-items: center;
+      align-items: flex-start;
       gap: 12px;
     }
+    .status-legend { width: 100%; justify-content: flex-start; }
   }
 
   /* Scrollbar Customization */
   ::-webkit-scrollbar { width: 8px; }
   ::-webkit-scrollbar-track { background: var(--bg-dark); }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.08);
     border-radius: 10px;
   }
-  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
 </style>
 </head>
 <body>
@@ -492,7 +513,7 @@
         <div class="cat-icon">🥰</div>
         <h2 class="cat-title">Media Gallery</h2>
         <div class="cat-line"></div>
-        <div class="cat-count">1 App</div>
+        <div class="cat-count">4 Apps</div>
       </div>
       <div class="grid">
         <article class="card" data-endpoint="/anime">
@@ -508,11 +529,12 @@
             <span class="app-badge">Entertainment</span>
           </div>
         </article>
-<article class="card" data-endpoint="/embed.html#https://web.cloudmoonapp.com/ja/">
+
+        <article class="card" data-endpoint="/embed.html#https://web.cloudmoonapp.com/ja/">
           <div class="card-top">
             <div class="app-icon">📱</div>
             <div class="app-info">
-              <div class="app-name"><span class="status-indicator done"></span>Application Tool</div>
+              <div class="app-name"><span class="status-indicator done"></span> Application Tool</div>
               <p class="app-desc">全てのアプリが使えてしまう…</p>
             </div>
           </div>
@@ -521,7 +543,8 @@
             <span class="app-badge">Entertainment</span>
           </div>
         </article>
-          <article class="card" data-endpoint="/embed.html#https://mangaraw.am">
+
+        <article class="card" data-endpoint="/embed.html#https://mangaraw.am">
           <div class="card-top">
             <div class="app-icon">📕</div>
             <div class="app-info">
@@ -535,7 +558,7 @@
           </div>
         </article>
 
-         <article class="card" data-endpoint="/embed.html#https://afterstream.org/">
+        <article class="card" data-endpoint="/embed.html#https://afterstream.org/">
           <div class="card-top">
             <div class="app-icon">🎞️</div>
             <div class="app-info">
@@ -557,7 +580,7 @@
         <div class="cat-icon">🎮</div>
         <h2 class="cat-title">Community & Play</h2>
         <div class="cat-line"></div>
-        <div class="cat-count">2 Apps</div>
+        <div class="cat-count">3 Apps</div>
       </div>
       <div class="grid">
         <article class="card" data-endpoint="/chat">
@@ -573,6 +596,7 @@
             <span class="app-badge">Social</span>
           </div>
         </article>
+
         <article class="card" data-endpoint="/game/game.html">
           <div class="card-top">
             <div class="app-icon">🕹️</div>
@@ -586,6 +610,7 @@
             <span class="app-badge">Fun</span>
           </div>
         </article>
+
         <article class="card" data-endpoint="/vc">
           <div class="card-top">
             <div class="app-icon">🧑‍💻</div>
@@ -608,10 +633,10 @@
         <div class="cat-icon">🔓</div>
         <h2 class="cat-title">Proxy Network</h2>
         <div class="cat-line"></div>
-        <div class="cat-count">6 Apps</div>
+        <div class="cat-count">7 Apps</div>
       </div>
       <div class="grid">
-　　　　 <article class="card" data-endpoint="/proxy">
+        <article class="card" data-endpoint="/proxy">
           <div class="card-top">
             <div class="app-icon">🦈</div>
             <div class="app-info">
@@ -681,7 +706,6 @@
           </div>
         </article>
 
-
         <article class="card" data-endpoint="/gust">
           <div class="card-top">
             <div class="app-icon">🌪️</div>
@@ -739,7 +763,7 @@
           <div class="card-top">
             <div class="app-icon">🤖</div>
             <div class="app-info">
-              <div class="app-name"><span class="status-indicator done"></span>Many AI</div>
+              <div class="app-name"><span class="status-indicator done"></span> Many AI</div>
               <p class="app-desc">元からあったAIをさらに拡張、8つのAIから解答を選ぶことができます</p>
             </div>
           </div>
@@ -793,7 +817,7 @@
       </div>
     </section>
 
-    <footer style="text-align: center; margin-top: 40px; color: var(--text-dim); font-size: 13px;">
+    <footer style="text-align: center; margin-top: 56px; color: var(--text-dim); font-size: 13px; letter-spacing: 0.03em;">
       <p>&copy; 2026 MIN-Tube-Pro Project. Select an application to launch.</p>
     </footer>
 
@@ -820,14 +844,14 @@
         cIdx++;
       }
 
-      let speed = isDeleting ? 40 : 80;
+      let speed = isDeleting ? 30 : 60;
       if (!isDeleting && cIdx === current.length) {
-        speed = 2500;
+        speed = 3000;
         isDeleting = true;
       } else if (isDeleting && cIdx === 0) {
         isDeleting = false;
         pIdx = (pIdx + 1) % phrases.length;
-        speed = 500;
+        speed = 400;
       }
       setTimeout(type, speed);
     }
@@ -838,9 +862,9 @@
       const run = () => {
         const url = card.getAttribute('data-endpoint');
         if (url) {
-          card.style.transform = "scale(0.98) translateY(0)";
-          card.style.opacity = "0.7";
-          setTimeout(() => window.location.href = url, 150);
+          card.style.transform = "scale(0.97) translateY(2px)";
+          card.style.opacity = "0.6";
+          setTimeout(() => window.location.href = url, 120);
         }
       };
       card.addEventListener('click', run);
