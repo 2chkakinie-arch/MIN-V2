@@ -726,6 +726,42 @@
       border-radius: 4px; letter-spacing: 0.3px;
     }
 
+    /* ===== ホーム上部: あなたの/新規プレイリスト行 ===== */
+    .home-top-section { margin: 4px 0 8px; }
+    .home-top-head { display:flex; align-items:center; gap:8px; font-size:16px; font-weight:700; margin:0 0 14px; }
+    .home-top-head .spark { font-size:16px; }
+    .home-pl-scroll { display:flex; gap:14px; overflow-x:auto; padding-bottom:6px; scrollbar-width:none; scroll-snap-type:x proximity; }
+    .home-pl-scroll::-webkit-scrollbar { display:none; }
+    .home-pl-tile { flex:0 0 300px; max-width:300px; scroll-snap-align:start; text-decoration:none; color:inherit; cursor:pointer; }
+    @media (max-width:600px){ .home-pl-tile { flex-basis:250px; } }
+    .home-pl-thumb { position:relative; width:100%; aspect-ratio:16/9; border-radius:12px; overflow:hidden; background:#000; margin-bottom:10px; }
+    .home-pl-thumb::before,.home-pl-thumb::after { content:''; position:absolute; left:50%; transform:translateX(-50%); border-radius:10px; background:#3a3a3a; z-index:0; }
+    .home-pl-thumb::before { top:-6px; width:90%; height:14px; opacity:.5; }
+    .home-pl-thumb::after { top:-3px; width:95%; height:14px; opacity:.8; background:#4a4a4a; }
+    .home-pl-thumb img { position:relative; z-index:1; width:100%; height:100%; object-fit:cover; }
+    .home-pl-overlay { position:absolute; z-index:2; inset:auto 0 0 0; background:linear-gradient(transparent,rgba(0,0,0,.75)); padding:20px 10px 8px; display:flex; align-items:flex-end; justify-content:space-between; }
+    .home-pl-count { color:#fff; font-size:12px; font-weight:600; display:flex; align-items:center; gap:5px; }
+    .home-pl-count svg { width:15px; height:15px; fill:#fff; }
+    .home-pl-tile .details h3 { font-size:15px; font-weight:600; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin:0 0 4px; }
+    .home-pl-tag { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; margin-bottom:4px; }
+    .home-pl-tag.gemini { background:linear-gradient(120deg,#4285F4,#9b72cb,#d96570); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .home-pl-tag.gemini svg { width:12px; height:12px; }
+    .home-pl-tag.mix { color:#8ab4ff; }
+    .home-pl-sub { font-size:12.5px; color:var(--text-muted); }
+
+    /* ===== フィード内 Mix / Gemini カード（通常動画と同じ体裁・識別可能） ===== */
+    .video-card.is-mix .thumb::before,.video-card.is-mix .thumb::after { content:''; position:absolute; left:50%; transform:translateX(-50%); border-radius:10px; background:#3a3a3a; z-index:0; }
+    .video-card.is-mix .thumb::before { top:-5px; width:90%; height:12px; opacity:.5; }
+    .video-card.is-mix .thumb::after { top:-2px; width:95%; height:12px; opacity:.8; background:#4a4a4a; }
+    .video-card.is-mix .thumb img { position:relative; z-index:1; }
+    .mix-thumb-badge { position:absolute; z-index:2; bottom:6px; right:6px; background:rgba(0,0,0,.85); color:#fff; font-size:12px; font-weight:600; padding:3px 7px; border-radius:4px; display:flex; align-items:center; gap:5px; }
+    .mix-thumb-badge svg { width:14px; height:14px; fill:#fff; }
+    .video-card.is-gemini .thumb { border:1px solid transparent; background:linear-gradient(#1a1a1a,#1a1a1a) padding-box, linear-gradient(120deg,#4285F4,#9b72cb,#d96570) border-box; }
+    .gemini-thumb-badge { position:absolute; z-index:2; top:6px; left:6px; background:rgba(0,0,0,.7); color:#fff; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:20px; display:flex; align-items:center; gap:4px; }
+    .gemini-thumb-badge svg { width:12px; height:12px; }
+    .gemini-thumb-badge .g-txt { background:linear-gradient(120deg,#8ab4ff,#c9a8e6,#f0a0b0); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .card-gen-avatar { background:linear-gradient(120deg,#4285F4,#9b72cb,#d96570) !important; color:#fff !important; }
+
     .meta { display: flex; gap: 12px; align-items: flex-start; }
     .channel-avatar, a.channel-avatar {
       width: 36px; height: 36px; border-radius: 50%;
@@ -1372,6 +1408,7 @@
           <div id="shortsRow" class="shorts-row"></div>
         </div>
 
+        <div id="homeTopSection" class="home-top-section" style="display:none;"></div>
         <div id="videoGrid" class="video-grid"></div>
         <div id="loading" style="display:none;">
           <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--text-muted)" stroke-width="2" style="animation:spin 1s linear infinite;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;">
@@ -1526,6 +1563,151 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
 
     function isDefaultQuery(q) { return !q || q === 'trending'; }
 
+    /* ===== ニュースを大幅削減（ホーム/おすすめのみ・検索では除外しない） =====
+     * ニュース系サムネは見ていて気が滅入り面白みも薄いので、ホームでは表示数を激減。
+     * ゲーム実況などの映える動画を優先する。 */
+    const NEWS_RE = /(ニュース|速報|報道|会見|記者|選挙|国会|事件|事故|地震|台風|株価|為替|\bnews\b|breaking|headline|weather|天気予報|ANN|NHKニュース|日テレNEWS|TBS NEWS|FNN|テレ朝news)/i;
+    function isNewsItem(it){
+      const t = (it.title||'') + ' ' + (it.channelTitle||'');
+      return NEWS_RE.test(t);
+    }
+    // ホーム表示リストからニュースを最大 maxNews 件に絞る（順序は維持）
+    function capNews(list, maxNews = 2){
+      let n = 0;
+      const out = [];
+      for (const it of list){
+        if (isNewsItem(it)) { if (n >= maxNews) continue; n++; }
+        out.push(it);
+      }
+      return out;
+    }
+
+    /* ===================================================================
+     *  ホーム上部: 新規/あなたのプレイリスト行（作成直後は必ず一番上・新しい順）
+     * =================================================================== */
+    const MIX_BADGE_SVG = '<svg viewBox="0 0 24 24"><path d="M4 6h12v2H4zm0 4h12v2H4zm0 4h8v2H4zm10 0l6-3-6-3z"/></svg>';
+    const GEMINI_SVG = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 2l2.35 6.35L21 10.7l-5.5 3.9L17 21l-5-3.6L7 21l1.5-6.4L3 10.7l6.65-2.35z" fill="currentColor"/></svg>';
+
+    function playHomePlaylist(items, label) {
+      const pl = (items || []).map(it => ({
+        id: it.id, title: it.title || '', channelTitle: it.channelTitle || it.channel || '',
+        thumbnail: it.thumbnail || ('https://i.ytimg.com/vi/' + it.id + '/mqdefault.jpg'),
+        lengthText: it.lengthText || it.length || ''
+      })).filter(x => x.id);
+      if (!pl.length) return;
+      sessionStorage.setItem('mix_playlist', JSON.stringify(pl));
+      sessionStorage.setItem('mix_index', '0');
+      sessionStorage.setItem('mix_label', label || 'プレイリスト');
+      window.location.href = '/video/' + pl[0].id;
+    }
+    window.playHomePlaylist = playHomePlaylist;
+
+    // 保存済みプレイリスト(mt_playlists)を新しい順で上部に表示。
+    // Gemini生成(source:'gemini') は特別カード、それ以外は Mix カード。
+    function renderHomeTopPlaylists() {
+      const section = document.getElementById('homeTopSection');
+      if (!section) return;
+      let pls = [];
+      try { pls = JSON.parse(localStorage.getItem(LIB_PLAYLISTS) || '[]'); } catch (e) { pls = []; }
+      const withItems = pls.filter(p => p && p.items && p.items.length > 0);
+      // 新しい順（createdAt降順）→ 作成されたばかりが必ず一番上
+      withItems.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      if (withItems.length === 0) { section.style.display = 'none'; section.innerHTML = ''; return; }
+
+      const tiles = withItems.slice(0, 12).map(p => {
+        const cover = p.items[0] || {};
+        const coverThumb = cover.thumbnail || ('https://i.ytimg.com/vi/' + cover.id + '/mqdefault.jpg');
+        const isGem = p.source === 'gemini';
+        const tag = isGem
+          ? `<div class="home-pl-tag gemini">${GEMINI_SVG} Gemini 生成</div>`
+          : `<div class="home-pl-tag mix">${MIX_BADGE_SVG} Mix</div>`;
+        const artists = [...new Set(p.items.map(i => i.channelTitle || i.channel).filter(Boolean))].slice(0, 3).join('、');
+        return `
+          <a class="home-pl-tile" data-plid="${p.id}">
+            <div class="home-pl-thumb">
+              <img src="${coverThumb}" loading="lazy" onerror="this.src='https://i.ytimg.com/vi/${cover.id}/mqdefault.jpg'">
+              <div class="home-pl-overlay"><span class="home-pl-count">${MIX_BADGE_SVG} ${p.items.length}本</span></div>
+            </div>
+            <div class="details">
+              ${tag}
+              <h3>${(p.name || 'プレイリスト').replace(/</g,'&lt;')}</h3>
+              <div class="home-pl-sub">${(artists || 'あなたのプレイリスト').replace(/</g,'&lt;')}</div>
+            </div>
+          </a>`;
+      }).join('');
+
+      section.style.display = 'block';
+      section.innerHTML = `
+        <div class="home-top-head"><span class="spark">✨</span> あなたのプレイリスト</div>
+        <div class="home-pl-scroll">${tiles}</div>`;
+      section.querySelectorAll('.home-pl-tile').forEach(el => {
+        el.addEventListener('click', () => {
+          const pl = withItems.find(x => x.id === el.dataset.plid);
+          if (pl) playHomePlaylist(pl.items, pl.name);
+        });
+      });
+    }
+
+    // MINV2 Mix カードをフィード内に注入（通常動画と同じ体裁・Mixと識別可能）
+    function buildMixFeedCard(mix) {
+      const cover = mix.items[0] || {};
+      const coverThumb = cover.thumbnail || ('https://i.ytimg.com/vi/' + cover.id + '/mqdefault.jpg');
+      const artists = [...new Set(mix.items.map(i => i.channelTitle).filter(Boolean))].slice(0, 3).join('、');
+      const isGem = mix.source === 'gemini';
+      const card = document.createElement('a');
+      card.className = 'video-card is-mix' + (isGem ? ' is-gemini' : '');
+      card.style.cursor = 'pointer';
+      card.innerHTML = `
+        <div class="thumb">
+          <img src="${coverThumb}" loading="lazy" onerror="this.src='https://i.ytimg.com/vi/${cover.id}/mqdefault.jpg'">
+          ${isGem ? `<div class="gemini-thumb-badge">${GEMINI_SVG}<span class="g-txt">Gemini</span></div>` : ''}
+          <div class="mix-thumb-badge">${MIX_BADGE_SVG} Mix・${mix.items.length}</div>
+        </div>
+        <div class="meta">
+          <div class="channel-avatar${isGem ? ' card-gen-avatar' : ''}">${isGem ? GEMINI_SVG : MIX_BADGE_SVG}</div>
+          <div class="details">
+            <h3>${(mix.label || 'Mix').replace(/</g,'&lt;')}</h3>
+            <div class="channel-name" style="color:var(--text-muted);">${(artists || 'MINV2-AI が選曲').replace(/</g,'&lt;')}</div>
+            <div class="video-stats">${isGem ? 'Gemini 生成プレイリスト' : 'MINV2-AI ・ おすすめ Mix'}</div>
+          </div>
+        </div>`;
+      card.addEventListener('click', () => playHomePlaylist(mix.items, mix.label));
+      return card;
+    }
+
+    // ホームフィード用の Mix を生成してカードとしてグリッドに挿入（積極利用）
+    // interests（ユーザーの興味語）から MINV2 アルゴリズム Mix を複数生成。
+    let homeMixInjected = false;
+    async function injectHomeMixCards(interests) {
+      if (homeMixInjected) return;
+      homeMixInjected = true;
+      const seeds = (interests && interests.length ? interests : ['J-POP', 'ゲーム実況', 'Lo-Fi', 'アニソン']);
+      shuffleArray(seeds);
+      const pick = seeds.slice(0, 3);
+      try {
+        const mixes = await Promise.all(pick.map(async q => {
+          try {
+            const r = await fetch('/api/mix/search?q=' + encodeURIComponent(q));
+            const d = await r.json();
+            if (d.isMusic && d.items && d.items.length >= 4) return { label: 'Mix - ' + q, items: d.items, source: 'minv2' };
+          } catch (e) {}
+          return null;
+        }));
+        const valid = mixes.filter(Boolean);
+        if (!valid.length) return;
+        // グリッドに散らして挿入（3〜4カードごとに1つ）
+        const cards = Array.from(videoGrid.querySelectorAll('.video-card'));
+        let insertAt = 3;
+        for (const mix of valid) {
+          const ref = cards[insertAt];
+          const cardEl = buildMixFeedCard(mix);
+          if (ref && ref.parentNode === videoGrid) videoGrid.insertBefore(cardEl, ref);
+          else videoGrid.appendChild(cardEl);
+          insertAt += 5;
+        }
+      } catch (e) { /* 失敗しても通常フィードは表示 */ }
+    }
+
     /* ===== 検索ページの Mix（音楽クエリ検出時・AI不使用アルゴリズム） ===== */
     async function loadSearchMix(query) {
       // スロットを videoGrid の直前に用意
@@ -1590,8 +1772,13 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         shortsRow.innerHTML = '';
         shortsSection.style.display = 'none';
         shortsExpanded = true;
+        homeMixInjected = false;
         const oldMix = document.getElementById('searchMixSlot');
         if (oldMix) oldMix.remove();
+        // ホーム(トレンド)のみ: 上部にプレイリスト行を表示。検索時は隠す。
+        const topSec = document.getElementById('homeTopSection');
+        if (isDefaultQuery(query)) { renderHomeTopPlaylists(); }
+        else if (topSec) { topSec.style.display = 'none'; }
         // 検索時のみ: 音楽クエリなら Mix を並行生成して先頭に表示
         if (!isDefaultQuery(query)) loadSearchMix(query);
       }
@@ -1604,6 +1791,8 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       try {
         let items = await fetchEndpoint(endpoint);
         items = normalizeAndFilterList(items);
+        // ホーム(トレンド)ではニュースを激減させる（検索クエリでは絞らない）
+        if (isDefault) items = capNews(items, 2);
 
         if (page === 0) {
           const MIN_ITEMS = 12;
@@ -1742,6 +1931,12 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           }
           videoGrid.appendChild(card);
         });
+
+        // ホーム(トレンド)の page 0 で MINV2 Mix カードを積極的にフィードへ注入
+        if (page === 0 && isDefault) {
+          const { channels } = getHistoryKeywords ? getHistoryKeywords() : { channels: [] };
+          injectHomeMixCards(channels);
+        }
 
       } catch (err) {
         console.error("Fetch error", err);
@@ -2051,6 +2246,8 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         shortsRow.innerHTML = '';
         shortsSection.style.display = 'none';
         shortsExpanded = true;
+        homeMixInjected = false;
+        renderHomeTopPlaylists();
       }
 
       const subscribedChannels = getSubscribedChannels();
@@ -2085,6 +2282,8 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         const seen = new Set([...displayedIds]);
         items = items.filter(it => { if (seen.has(it.id)) return false; seen.add(it.id); return true; });
         items = shuffleArray(items);
+        // おすすめでもニュースは激減（1ページあたり最大2件）
+        items = capNews(items, 2);
 
         if (items.length === 0 && page === 0) {
           videoGrid.innerHTML = '<p class="empty">動画が見つかりませんでした。</p>';
@@ -2164,6 +2363,11 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           }
           videoGrid.appendChild(card);
         });
+
+        // おすすめ page 0 でも MINV2 Mix カードを積極的に注入
+        if (page === 0) {
+          injectHomeMixCards(allChannels);
+        }
 
       } catch (err) {
         console.error('Personalized feed error', err);
@@ -3035,14 +3239,34 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           id: it.id,
           title: it.title || '',
           channelTitle: it.channelTitle || '',
-          thumbnail: it.thumbnail || ('https://i.ytimg.com/vi/' + it.id + '/mqdefault.jpg')
+          thumbnail: it.thumbnail || ('https://i.ytimg.com/vi/' + it.id + '/mqdefault.jpg'),
+          lengthText: it.length || it.lengthText || ''
         })).filter(x => x.id);
         if (!playlist.length) return;
+        // Gemini生成プレイリストを保存 → ホーム上部に「作成されたばかり」で一番上に出す
+        saveGeminiPlaylist(playlist);
         try {
           sessionStorage.setItem('mix_playlist', JSON.stringify(playlist));
           sessionStorage.setItem('mix_index', '0');
         } catch (e) {}
         window.location.href = '/video/' + playlist[0].id;
+      }
+      // Gemini生成のプレイリストを mt_playlists に保存（source:'gemini', createdAt=now）
+      function saveGeminiPlaylist(playlist) {
+        try {
+          const key = 'mt_playlists';
+          let pls = JSON.parse(localStorage.getItem(key) || '[]');
+          const cover = playlist[0] || {};
+          const name = '✨ ' + (cover.channelTitle ? cover.channelTitle : (cover.title || '').slice(0, 24) || 'AIプレイリスト');
+          pls.push({ id: 'gem_' + Date.now(), name, items: playlist, createdAt: Date.now(), source: 'gemini' });
+          // 保存数の暴走を防ぐ（Gemini生成は最新12件まで）
+          const gem = pls.filter(p => p.source === 'gemini').sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+          if (gem.length > 12) {
+            const keep = new Set(gem.slice(0, 12).map(p => p.id));
+            pls = pls.filter(p => p.source !== 'gemini' || keep.has(p.id));
+          }
+          localStorage.setItem(key, JSON.stringify(pls));
+        } catch (e) {}
       }
 
       /* ===== Open Player in new tab (about:blank trick) ===== */
