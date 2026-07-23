@@ -304,39 +304,84 @@ async function callNieAI(messages, { temperature = 0.75, maxTokens = 1000, retri
 const videoMetaCache = new Map(); // videoId -> { data, expiry }
 const VIDEO_META_TTL = 60 * 60 * 1000;
 
+// 数値を YouTube 風に整形 (1234567 -> 123万 / 4001423536 -> 40億)
+function formatCountJa(n) {
+  n = Number(n) || 0;
+  if (n >= 1e8) return (Math.floor(n / 1e7) / 10).toString().replace(/\.0$/, "") + "億";
+  if (n >= 1e4) return (Math.floor(n / 1e3) / 10).toString().replace(/\.0$/, "") + "万";
+  return n.toLocaleString("ja-JP");
+}
+
+// Orby /meta エンドポイントから確実にメタ取得
+async function orbyGetMeta(videoId) {
+  try {
+    const j = await orbyFetchJson(`/orby/yt/meta/${videoId}`, 8000);
+    const m = j.metadata || {};
+    return {
+      title: m.title || "",
+      author: m.author || "",
+      channelId: m.channelId || "",
+      description: m.description || "",
+      views: Number(m.viewCount) || 0,
+      likes: Number(m.likeCount) || 0,
+      comments: Number(m.commentCount) || 0,
+      lengthSeconds: Number(m.lengthSeconds) || 0
+    };
+  } catch (e) { return null; }
+}
+
 async function resolveVideoMeta(videoId) {
   const now = Date.now();
   const cached = videoMetaCache.get(videoId);
   if (cached && cached.expiry > now) return cached.data;
 
-  const meta = { title: "", channelName: "", channelId: "", description: "", views: 0 };
+  const meta = {
+    title: "", channelName: "", channelId: "", description: "",
+    views: 0, likes: 0, comments: 0
+  };
 
-  // 1) noembed: title と author を高速取得
-  try {
-    const r = await fetchWithAbort(
-      `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`,
-      { headers: COMMON_HEADERS }, 4000
-    );
-    if (r.ok) {
-      const d = await r.json();
-      if (d && !d.error) {
-        meta.title = d.title || "";
-        meta.channelName = d.author_name || "";
+  // 並列: Orby /meta (数値系に強い) + noembed (title/author に強い)
+  const [orbyMeta, noembed] = await Promise.all([
+    orbyGetMeta(videoId),
+    (async () => {
+      try {
+        const r = await fetchWithAbort(
+          `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`,
+          { headers: COMMON_HEADERS }, 4000
+        );
+        if (r.ok) { const d = await r.json(); if (d && !d.error) return d; }
+      } catch (e) {}
+      return null;
+    })()
+  ]);
+
+  if (orbyMeta) {
+    meta.title = orbyMeta.title || "";
+    meta.channelName = orbyMeta.author || "";
+    meta.channelId = orbyMeta.channelId || "";
+    meta.description = orbyMeta.description || "";
+    meta.views = orbyMeta.views || 0;
+    meta.likes = orbyMeta.likes || 0;
+    meta.comments = orbyMeta.comments || 0;
+  }
+  if (noembed) {
+    meta.title = meta.title || noembed.title || "";
+    meta.channelName = meta.channelName || noembed.author_name || "";
+  }
+
+  // channelId が空なら yts 検索で特定（アバター解決に必要）
+  if (!meta.channelId || !meta.channelName || !meta.title) {
+    try {
+      const q = meta.title || videoId;
+      const sr = await yts.GetListByKeyword(q, false, 12);
+      const match = (sr.items || []).find(it => it.id === videoId);
+      if (match) {
+        meta.title = meta.title || match.title || "";
+        meta.channelName = meta.channelName || match.channelTitle || match.shortBylineText?.runs?.[0]?.text || "";
+        meta.channelId = meta.channelId || extractChannelId(match) || "";
       }
-    }
-  } catch (e) {}
-
-  // 2) yts 検索で channelId を特定（アバター解決に必要）
-  try {
-    const q = meta.title || videoId;
-    const sr = await yts.GetListByKeyword(q, false, 12);
-    const match = (sr.items || []).find(it => it.id === videoId);
-    if (match) {
-      meta.title = meta.title || match.title || "";
-      meta.channelName = meta.channelName || match.channelTitle || match.shortBylineText?.runs?.[0]?.text || "";
-      meta.channelId = extractChannelId(match) || "";
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
 
   videoMetaCache.set(videoId, { data: meta, expiry: now + VIDEO_META_TTL });
   return meta;
@@ -685,31 +730,39 @@ if (!videoData) {
   videoData = { videoTitle: "再生できない動画", stream_url: "youtube-nocookie" };
 }
 
-// ---- メタデータ補完: Orby は title/channel/avatar が空なので yts で補う ----
+// ---- メタデータ補完: title/channel/views/likes/desc が空にならないよう確実に補う ----
+// 数値(再生回数・高評価)は空バグが多いので常に meta を取得して欠損分を埋める
 try {
-  if (!videoData.videoTitle || !videoData.channelName || !videoData.channelImage) {
+  const needMeta = !videoData.videoTitle || !videoData.channelName || !videoData.channelImage
+                || !videoData.videoDes || !videoData.videoViews || !videoData.likeCount;
+  if (needMeta) {
     const meta = await resolveVideoMeta(videoId);
     if (meta) {
       videoData.videoTitle = videoData.videoTitle || meta.title;
       videoData.channelName = videoData.channelName || meta.channelName;
       videoData.channelId   = videoData.channelId   || meta.channelId;
       videoData.videoDes    = videoData.videoDes    || meta.description;
-      videoData.videoViews  = videoData.videoViews  || meta.views;
+      if (!videoData.videoViews || Number(videoData.videoViews) === 0) videoData.videoViews = meta.views;
+      if (!videoData.likeCount || Number(videoData.likeCount) === 0)   videoData.likeCount = meta.likes;
+      videoData.commentCount = videoData.commentCount || meta.comments;
       if (!videoData.channelImage && meta.channelId) {
         videoData.channelImage = await resolveChannelAvatar(meta.channelId);
       }
     }
   }
-  // それでもアバターが無く channelId があれば解決
   if (!videoData.channelImage && videoData.channelId) {
     videoData.channelImage = await resolveChannelAvatar(videoData.channelId);
   }
 } catch (metaErr) { console.warn("meta enrich failed:", metaErr.message); }
 
-// videoData を安全にデフォルト補完
+// videoData を安全にデフォルト補完 + 表示用フォーマット
 videoData.videoTitle  = videoData.videoTitle  || "動画";
 videoData.channelName = videoData.channelName || "Unknown";
 videoData.videoDes    = videoData.videoDes    || "";
+videoData.videoViews  = Number(videoData.videoViews) || 0;
+videoData.likeCount   = Number(videoData.likeCount) || 0;
+videoData.viewsText   = videoData.videoViews > 0 ? formatCountJa(videoData.videoViews) : "";
+videoData.likesText   = videoData.likeCount > 0 ? formatCountJa(videoData.likeCount) : "";
 if (!commentsData) commentsData = { commentCount: 0, comments: [] };
 if (!Array.isArray(commentsData.comments)) commentsData.comments = [];
 let isShortForm = videoData.videoTitle.includes('#');
@@ -961,6 +1014,11 @@ const shortsHtml = `
         .nav-left { display:flex; align-items:center; gap:16px; }
         .logo { display:flex; align-items:center; color:white; text-decoration:none; font-weight:bold; font-size:20px; letter-spacing:-1px; }
         .logo i { color:var(--yt-red); font-size:28px; margin-right:4px; }
+        .nav-right-cluster { display:flex; align-items:center; gap:8px; }
+        .nav-icon-btn { background:none; border:none; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s; padding:0; }
+        .nav-icon-btn:hover { background:var(--bg-secondary); }
+        .nav-icon-btn svg { width:24px; height:24px; fill:var(--text-main); }
+        .nav-avatar { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,#3ea6ff,#065fd4); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; text-decoration:none; }
         .nav-center { flex:0 1 640px; display:flex; position:relative; }
         .search-bar { display:flex; width:100%; background:#121212; border:1px solid #303030; border-radius:40px 0 0 40px; padding:0 16px; }
         .search-bar input { width:100%; background:transparent; border:none; color:white; height:40px; font-size:16px; outline:none; }
@@ -983,7 +1041,14 @@ const shortsHtml = `
         .actions-cluster { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
         .action-btn { background:var(--bg-secondary); border:none; color:white; padding:0 16px; height:36px; border-radius:18px; cursor:pointer; font-size:14px; font-weight:500; display:flex; align-items:center; gap:6px; transition:background .15s; }
         .action-btn:hover { background:var(--bg-hover); }
-        .action-btn.ask { background:linear-gradient(90deg,#4285f4,#9b72cb,#d96570); color:#fff; }
+        .like-group { display:flex; align-items:center; background:var(--bg-secondary); border-radius:18px; overflow:hidden; }
+        .like-group .action-btn { background:transparent; border-radius:0; }
+        .like-group .like-btn { padding-right:12px; }
+        .like-group .dislike-btn { padding:0 14px; }
+        .like-divider { width:1px; height:22px; background:rgba(255,255,255,0.2); }
+        .action-btn.ask { background:transparent; border:1px solid #303030; color:#fff; font-weight:600; }
+        .action-btn.ask .ask-diamond { background:linear-gradient(135deg,#4285f4,#9b72cb,#d96570); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; font-size:15px; }
+        .action-btn.ask:hover { background:var(--bg-secondary); }
         .description-box { background:var(--bg-secondary); border-radius:12px; padding:12px; font-size:14px; margin-bottom:24px; cursor:pointer; transition:background .2s; }
         .description-box:hover { background:#323232; }
         .description-content { max-height:60px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; margin-top:8px; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
@@ -1045,6 +1110,8 @@ const shortsHtml = `
         .mix-header .mix-icon { width:26px; height:26px; }
         .mix-title-txt { font-weight:700; font-size:15px; }
         .mix-sub-txt { font-size:11px; color:var(--text-sub); }
+        .mix-close { background:none; border:none; color:var(--text-sub); font-size:14px; cursor:pointer; width:28px; height:28px; border-radius:50%; flex-shrink:0; }
+        .mix-close:hover { background:rgba(255,255,255,0.1); color:#fff; }
         .mix-body { padding:8px; }
         .mix-item { display:flex; gap:10px; padding:6px; border-radius:8px; text-decoration:none; color:inherit; align-items:center; transition:background .15s; }
         .mix-item:hover { background:var(--bg-hover); }
@@ -1062,26 +1129,74 @@ const shortsHtml = `
         .gem-orb-wrap { text-align:center; padding:10px 0 4px; }
         .gem-caption { text-align:center; font-size:12px; color:#c8aaff; margin-bottom:6px; }
 
-        /* Ask panel */
-        .ask-panel { position:fixed; right:0; top:0; height:100%; width:min(420px,92vw); background:#181818; border-left:1px solid #303030; z-index:6000; transform:translateX(100%); transition:transform .3s cubic-bezier(.2,.9,.2,1); display:flex; flex-direction:column; }
+        /* Ask panel (YouTube風) */
+        .ask-panel { position:fixed; right:0; top:0; height:100%; width:min(400px,100vw); background:var(--bg-main); border-left:1px solid #272727; z-index:6000; transform:translateX(100%); transition:transform .28s cubic-bezier(.2,.9,.2,1); display:flex; flex-direction:column; }
         .ask-panel.open { transform:translateX(0); }
-        .ask-head { padding:16px; border-bottom:1px solid #303030; display:flex; align-items:center; justify-content:space-between; }
-        .ask-head .ask-brand { display:flex; align-items:center; gap:8px; font-weight:700; }
-        .ask-head .ask-brand .aicon { background:linear-gradient(90deg,#4285f4,#9b72cb,#d96570); -webkit-background-clip:text; background-clip:text; color:transparent; font-size:20px; }
-        .ask-body { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:14px; }
-        .ask-msg { max-width:88%; padding:10px 14px; border-radius:14px; font-size:14px; line-height:1.5; white-space:pre-wrap; }
-        .ask-msg.user { align-self:flex-end; background:var(--blue); color:#000; border-bottom-right-radius:4px; }
-        .ask-msg.ai { align-self:flex-start; background:var(--bg-secondary); border-bottom-left-radius:4px; }
+        .ask-head { padding:14px 16px; display:flex; align-items:center; justify-content:space-between; }
+        .ask-head .ask-brand { display:flex; align-items:center; gap:10px; font-weight:600; font-size:16px; }
+        .ask-diamond-lg { background:linear-gradient(135deg,#4285f4,#9b72cb,#d96570); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; font-size:18px; }
+        .ask-close { background:none; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+        .ask-close:hover { background:var(--bg-secondary); }
+        .ask-close svg { width:22px; height:22px; fill:var(--text-main); }
+        .ask-body { flex:1; overflow-y:auto; padding:8px 16px 16px; display:flex; flex-direction:column; gap:12px; }
+        .ask-hero { text-align:center; padding:24px 12px 8px; }
+        .ask-hero-diamond { font-size:40px; background:linear-gradient(135deg,#4285f4,#9b72cb,#d96570); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:12px; }
+        .ask-hero-title { font-size:17px; font-weight:600; margin-bottom:6px; }
+        .ask-hero-sub { font-size:13px; color:var(--text-sub); line-height:1.5; }
+        .ask-msg { max-width:90%; padding:10px 14px; border-radius:16px; font-size:14px; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+        .ask-msg.user { align-self:flex-end; background:var(--bg-secondary); border-bottom-right-radius:4px; }
+        .ask-msg.ai { align-self:flex-start; background:transparent; padding-left:0; padding-right:0; }
         .ask-msg.ai.thinking { color:var(--text-sub); }
-        .ask-suggest { display:flex; flex-wrap:wrap; gap:8px; }
-        .ask-suggest button { background:var(--bg-secondary); border:1px solid #333; color:var(--text-main); border-radius:16px; padding:6px 12px; font-size:12px; cursor:pointer; }
-        .ask-suggest button:hover { background:var(--bg-hover); }
-        .ask-input-row { padding:12px 16px; border-top:1px solid #303030; display:flex; gap:8px; }
-        .ask-input-row input { flex:1; background:var(--bg-secondary); border:1px solid #333; border-radius:20px; padding:0 16px; height:40px; color:#fff; outline:none; font-size:14px; }
-        .ask-input-row button { background:var(--blue); border:none; color:#000; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:16px; }
-        .ask-input-row button:disabled { opacity:.5; cursor:not-allowed; }
+        .ask-suggest { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+        .ask-suggest button { background:transparent; border:1px solid #303030; color:var(--text-main); border-radius:20px; padding:10px 16px; font-size:13px; cursor:pointer; text-align:left; transition:background .15s; }
+        .ask-suggest button:hover { background:var(--bg-secondary); }
+        .ask-input-row { padding:12px 16px 16px; display:flex; gap:8px; align-items:center; }
+        .ask-input-row input { flex:1; background:var(--bg-secondary); border:1px solid transparent; border-radius:24px; padding:0 18px; height:44px; color:var(--text-main); outline:none; font-size:14px; }
+        .ask-input-row input:focus { border-color:#3ea6ff; }
+        .ask-input-row button { background:var(--bg-secondary); border:none; color:var(--text-main); width:44px; height:44px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .15s; }
+        .ask-input-row button:hover { background:var(--bg-hover); }
+        .ask-input-row button svg { width:22px; height:22px; fill:currentColor; }
+        .ask-input-row button:disabled { opacity:.4; cursor:not-allowed; }
         .ask-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:5900; display:none; }
         .ask-backdrop.open { display:block; }
+        /* コンパクト Mix カード (YouTube風・関連の一番下) */
+        .compact-mix { margin-top:24px; border-radius:12px; overflow:hidden; }
+        .compact-mix-inner { display:flex; gap:12px; padding:8px; border-radius:12px; text-decoration:none; color:inherit; transition:background .15s; cursor:pointer; }
+        .compact-mix-inner:hover { background:var(--bg-secondary); }
+        .cmix-thumb-wrap { position:relative; width:168px; flex-shrink:0; }
+        .cmix-stack { position:relative; }
+        .cmix-stack::before,.cmix-stack::after { content:''; position:absolute; left:50%; transform:translateX(-50%); border-radius:8px; }
+        .cmix-stack::before { top:-6px; width:88%; height:12px; background:#3a3a3a; opacity:.5; }
+        .cmix-stack::after { top:-3px; width:94%; height:12px; background:#4a4a4a; opacity:.8; }
+        .cmix-thumb { position:relative; width:100%; aspect-ratio:16/9; border-radius:8px; overflow:hidden; background:#000; z-index:1; }
+        .cmix-thumb img { width:100%; height:100%; object-fit:cover; }
+        .cmix-badge { position:absolute; bottom:6px; right:6px; background:rgba(0,0,0,0.85); color:#fff; font-size:11px; font-weight:600; padding:3px 6px; border-radius:4px; display:flex; align-items:center; gap:4px; z-index:2; }
+        .cmix-badge svg { width:13px; height:13px; fill:#fff; }
+        .cmix-info { flex:1; min-width:0; padding-top:2px; }
+        .cmix-title { font-size:15px; font-weight:700; line-height:1.3; margin-bottom:4px; }
+        .cmix-artists { font-size:12.5px; color:var(--text-sub); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .cmix-gen { display:flex; align-items:center; gap:12px; padding:12px 8px; }
+        .cmix-gen-orb { width:28px; height:28px; border-radius:50%; flex-shrink:0; background:conic-gradient(from 0deg,#5a7fd6,#8a7fc0,#c07f9a,#5a7fd6); animation:spin 2.6s linear infinite; opacity:.9; }
+        .cmix-gen-txt { font-size:13px; font-weight:600; }
+        .cmix-gen-sub { font-size:11px; color:var(--text-sub); margin-top:2px; }
+        /* 設定モーダル (YouTube風) */
+        .yt-modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:7000; display:flex; align-items:center; justify-content:center; }
+        .yt-modal { background:#282828; border-radius:12px; width:min(440px,92vw); overflow:hidden; box-shadow:0 8px 40px rgba(0,0,0,0.6); }
+        .yt-modal-head { padding:18px 24px; font-size:18px; font-weight:600; border-bottom:1px solid #3f3f3f; }
+        .yt-modal-body { padding:8px 24px 20px; }
+        .yt-setting-row { display:flex; align-items:center; justify-content:space-between; padding:16px 0; }
+        .yt-setting-row + .yt-setting-row { border-top:1px solid #3f3f3f; }
+        .yt-setting-label { font-weight:500; font-size:15px; }
+        .yt-setting-desc { font-size:12.5px; color:var(--text-sub); margin-top:3px; max-width:280px; }
+        .yt-switch { position:relative; width:46px; height:26px; flex-shrink:0; }
+        .yt-switch input { opacity:0; width:0; height:0; }
+        .yt-switch .slider { position:absolute; inset:0; background:#606060; border-radius:26px; transition:.2s; cursor:pointer; }
+        .yt-switch .slider::before { content:''; position:absolute; width:20px; height:20px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+        .yt-switch input:checked + .slider { background:#3ea6ff; }
+        .yt-switch input:checked + .slider::before { transform:translateX(20px); }
+        .yt-modal-foot { padding:12px 24px 18px; text-align:right; }
+        .yt-modal-foot button { background:none; border:none; color:#3ea6ff; font-weight:600; font-size:14px; padding:8px 16px; border-radius:18px; cursor:pointer; font-family:inherit; }
+        .yt-modal-foot button:hover { background:rgba(62,166,255,0.1); }
         .dots::after { content:'…'; animation:dots 1.2s steps(4,end) infinite; }
         @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
 
@@ -1105,7 +1220,12 @@ const shortsHtml = `
         </form>
         <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
     </div>
-    <div class="nav-left"><a href="/settings" class="logo" style="font-size:22px;" title="設定" onclick="event.preventDefault(); openSettings();"><i class="fas fa-gear"></i></a></div>
+    <div class="nav-right-cluster">
+        <button class="nav-icon-btn" title="設定" onclick="openSettings()" aria-label="設定">
+            <svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+        </button>
+        <a href="/" class="nav-avatar" title="ホーム">C</a>
+    </div>
 </nav>
 
 <div class="container">
@@ -1127,8 +1247,12 @@ const shortsHtml = `
                 <button id="subBtn" class="btn-sub" onclick="toggleSubscribeVideo()">チャンネル登録</button>
             </div>
             <div class="actions-cluster">
-                <button class="action-btn ask" onclick="openAsk()"><i class="fas fa-diamond"></i> Ask</button>
-                <button class="action-btn" id="likeBtn" onclick="toggleLike()"><i class="fas fa-thumbs-up"></i> <span id="likeTxt">${videoData.likeCount || '高評価'}</span></button>
+                <button class="action-btn ask" onclick="openAsk()"><span class="ask-diamond">◆</span> Ask</button>
+                <div class="like-group">
+                    <button class="action-btn like-btn" id="likeBtn" onclick="toggleLike()"><i class="fas fa-thumbs-up"></i> <span id="likeTxt">${videoData.likesText || '高評価'}</span></button>
+                    <span class="like-divider"></span>
+                    <button class="action-btn dislike-btn" title="低評価"><i class="fas fa-thumbs-down"></i></button>
+                </div>
                 <button class="action-btn"><i class="fas fa-share"></i> 共有</button>
                 <div class="server-dropdown-container">
                     <button class="btn-quality" id="qualityBtn" onclick="toggleQualityMenu()"><i class="fas fa-gauge-high"></i> <span id="qualityLabel">画質</span> <i class="fas fa-chevron-down" style="font-size:11px;"></i></button>
@@ -1149,8 +1273,8 @@ const shortsHtml = `
             </div>
         </div>
         <div class="description-box" id="descriptionBox" onclick="toggleDescription(event)">
-            <b>${videoData.videoViews || '0'} 回視聴</b>
-            <div class="description-content" id="descriptionContent">${(videoData.videoDes || '').replace(/</g,'&lt;').replace(/\r\n|\n|\r/g, '<br>')}</div>
+            <b>${videoData.viewsText ? videoData.viewsText + ' 回視聴' : '再生回数を取得中'}</b>
+            <div class="description-content" id="descriptionContent">${(videoData.videoDes || '概要欄はありません').replace(/</g,'&lt;').replace(/\r\n|\n|\r/g, '<br>')}</div>
             <div class="description-show-more" id="descriptionToggleBtn">...もっと見る</div>
         </div>
         <div class="comments-header">
@@ -1160,8 +1284,8 @@ const shortsHtml = `
         <div id="commentsSentinel"></div>
     </div>
     <div class="sidebar">
-        <div id="mixContainer"></div>
         <div id="recommendations"></div>
+        <div id="mixContainer"></div>
         <div id="shortsShelf" class="shorts-shelf-container" style="display:none;">
             <div class="shorts-shelf-title">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="red"><path d="M17.77,10.32l-1.2-.5L18,9.06a3.74,3.74,0,0,0-3.5-6.62L6,6.94a3.74,3.74,0,0,0,.23,6.74l1.2.49L6,14.93a3.75,3.75,0,0,0,3.5,6.63l8.5-4.5a3.74,3.74,0,0,0-.23-6.74Z"/><polygon points="10 14.65 15 12 10 9.35 10 14.65" fill="#fff"/></svg>
@@ -1184,20 +1308,24 @@ const shortsHtml = `
 <div class="ask-backdrop" id="askBackdrop" onclick="closeAsk()"></div>
 <div class="ask-panel" id="askPanel">
     <div class="ask-head">
-        <div class="ask-brand"><span class="aicon">◆</span> Ask（この動画について）</div>
-        <button class="an-cancel" onclick="closeAsk()"><i class="fas fa-times"></i></button>
+        <div class="ask-brand"><span class="ask-diamond-lg">◆</span> <span>この動画について質問する</span></div>
+        <button class="ask-close" onclick="closeAsk()" aria-label="閉じる"><svg viewBox="0 0 24 24"><path d="M18.3 5.71L12 12.01l-6.3-6.3-1.41 1.41L10.59 13.4l-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3z"/></svg></button>
     </div>
     <div class="ask-body" id="askBody">
-        <div class="ask-msg ai">こんにちは。この動画の概要欄を読み込みました。内容について何でも質問してください。</div>
+        <div class="ask-hero">
+            <div class="ask-hero-diamond">◆</div>
+            <div class="ask-hero-title">この動画について何でも聞いてください</div>
+            <div class="ask-hero-sub">タイトルと視聴者の上位コメントをもとに回答します。</div>
+        </div>
         <div class="ask-suggest" id="askSuggest">
             <button onclick="askQuick(this)">この動画は何について？</button>
             <button onclick="askQuick(this)">要点を3つで教えて</button>
-            <button onclick="askQuick(this)">概要欄のリンクは？</button>
+            <button onclick="askQuick(this)">みんなの感想は？</button>
         </div>
     </div>
     <div class="ask-input-row">
-        <input type="text" id="askInput" placeholder="この動画について質問..." onkeydown="if(event.key==='Enter')sendAsk()">
-        <button id="askSend" onclick="sendAsk()"><i class="fas fa-paper-plane"></i></button>
+        <input type="text" id="askInput" placeholder="質問を入力..." onkeydown="if(event.key==='Enter')sendAsk()">
+        <button id="askSend" onclick="sendAsk()" aria-label="送信"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
     </div>
 </div>
 
@@ -1227,7 +1355,20 @@ const shortsHtml = `
      *  サーバー / 画質メニュー
      * ================================================================= */
     function toggleServerMenu(){ document.getElementById('serverMenu').classList.toggle('show'); document.getElementById('qualityMenu').classList.remove('show'); }
-    function toggleQualityMenu(){ document.getElementById('qualityMenu').classList.toggle('show'); document.getElementById('serverMenu').classList.remove('show'); }
+    let qualityLoading=false;
+    async function toggleQualityMenu(){
+      const menu=document.getElementById('qualityMenu');
+      document.getElementById('serverMenu').classList.remove('show');
+      const willShow=!menu.classList.contains('show');
+      menu.classList.toggle('show');
+      // Orby-MAX は「画質」を押した時に初めて取得（負荷軽減）
+      if(willShow && !QUALITY_DATA && !qualityLoading){
+        qualityLoading=true;
+        menu.innerHTML='<div class="quality-option" style="justify-content:center;"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0;"></div></div>';
+        await loadQualityMenu();
+        qualityLoading=false;
+      }
+    }
     window.addEventListener('click', (e)=>{ if(!e.target.closest('.server-dropdown-container')){ document.querySelectorAll('.server-menu,.quality-menu').forEach(m=>m.classList.remove('show')); } });
 
     /* ===== チャンネル登録 ===== */
@@ -1351,8 +1492,7 @@ const shortsHtml = `
       try{
         if(serverName==='googlevideo'){
           if(STREAM_URL && STREAM_URL!=='youtube-nocookie'){
-            mountSyncedPlayer(STREAM_URL, ''); // 標準360pは音声込み
-            if(!QUALITY_DATA) loadQualityMenu();
+            mountSyncedPlayer(STREAM_URL, ''); // 標準360pは音声込み。画質はボタン押下時に取得
           } else {
             document.getElementById('playerWrapper').innerHTML = buildIframe('https://www.youtube-nocookie.com/embed/'+VIDEO_ID+'?autoplay=1');
           }
@@ -1457,8 +1597,10 @@ const shortsHtml = `
 
     function escHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-    /* ===== Mix プレイリスト ===== */
-    let MIX_STATE = null; // {playlist:[{id,title,channelTitle,thumbnail}], index}
+    /* ===== Mix プレイリスト (AI不使用・アルゴリズム / コンパクトYouTube風) ===== */
+    let MIX_STATE = null;       // 再生中: {playlist, index, label}
+    let MIX_SUGGEST = null;     // 提案(未再生): {items, label}
+    const mixBadgeSvg = '<svg viewBox="0 0 24 24"><path d="M4 6h12v2H4zm0 4h12v2H4zm0 4h8v2H4zm10 0l6-3-6-3z"/></svg>';
 
     function getMixContext(){
       if(!MIX_STATE || !MIX_STATE.playlist || !MIX_STATE.playlist.length) return null;
@@ -1471,104 +1613,122 @@ const shortsHtml = `
       };
     }
 
+    // Mix コンテナは「関連動画の一番下」に配置する要素
+    function mixSlot(){ return document.getElementById('mixContainer'); }
+
     async function initMixOrDetect(){
-      // 既に Mix 再生中（前ページから引き継ぎ）ならそれを表示
+      // 1) 既に Mix 再生中（前ページから引き継ぎ）なら再生モードで表示
       const savedPl=sessionStorage.getItem('mix_playlist');
       const savedIdx=sessionStorage.getItem('mix_index');
+      const savedLabel=sessionStorage.getItem('mix_label')||'';
       if(savedPl){
         try{
           const pl=JSON.parse(savedPl);
+          // この動画がプレイリストに含まれる場合のみ「再生中」とみなす
           let idx=pl.findIndex(x=>x.id===VIDEO_ID);
-          if(idx<0) idx=savedIdx!=null?parseInt(savedIdx):0;
-          MIX_STATE={playlist:pl,index:idx};
-          renderMix(pl, idx, false);
-          return;
+          if(idx>=0 || (savedIdx!=null && pl[parseInt(savedIdx)] && pl[parseInt(savedIdx)].id===VIDEO_ID)){
+            if(idx<0) idx=parseInt(savedIdx)||0;
+            MIX_STATE={playlist:pl,index:idx,label:savedLabel};
+            sessionStorage.setItem('mix_index',String(idx));
+            renderMixPlaying();
+            return;
+          }
+          // 含まれない動画に来た → Mix はもう邪魔なのでクリア（提案表示に切替）
+          sessionStorage.removeItem('mix_playlist');
+          sessionStorage.removeItem('mix_index');
+          sessionStorage.removeItem('mix_label');
         }catch(e){}
       }
-      // 音楽判定 → 音楽なら Mix を生成
+      // 2) 音楽なら Mix を提案（アルゴリズム・AI不使用）
       try{
         const q=new URLSearchParams({title:VIDEO_TITLE, channel:VIDEO_CH});
-        const r=await fetch('/api/ai/is-music/'+VIDEO_ID+'?'+q.toString());
+        renderMixGenerating();
+        const r=await fetch('/api/mix/video/'+VIDEO_ID+'?'+q.toString());
         const j=await r.json();
-        if(j.isMusic){ generateMix(); }
-      }catch(e){}
+        if(j.isMusic && j.items && j.items.length>=4){
+          MIX_SUGGEST={items:j.items, label:'Mix - '+(j.artist||VIDEO_CH||'おすすめ')};
+          renderMixSuggest();
+        } else {
+          if(mixSlot()) mixSlot().innerHTML='';
+        }
+      }catch(e){ if(mixSlot()) mixSlot().innerHTML=''; }
     }
 
+    // 生成中（落ち着いたデザイン・関連の一番下）
     function renderMixGenerating(){
-      document.getElementById('mixContainer').innerHTML = \`
-        <div class="mix-card">
-          <div class="mix-header">
-            <svg class="mix-icon" viewBox="0 0 24 24"><defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4285f4"/><stop offset="0.5" stop-color="#9b72cb"/><stop offset="1" stop-color="#d96570"/></linearGradient></defs><path fill="url(#mg)" d="M12 2l2.4 6.5L21 9l-5 4.2L17.5 20 12 16.3 6.5 20 8 13.2 3 9l6.6-.5z"/></svg>
-            <div><div class="mix-title-txt">Mix を生成中</div><div class="mix-sub-txt">Gemini が選曲しています</div></div>
-          </div>
-          <div class="gem-gen">
-            <div class="gem-orb-wrap"><div class="gem-orb"></div></div>
-            <div class="gem-caption">✨ あなたの好みに合わせて生成中<span class="dots"></span></div>
-            <div class="gem-line w1"></div><div class="gem-line w2"></div><div class="gem-line w3"></div><div class="gem-line w4"></div><div class="gem-line w2"></div>
+      const s=mixSlot(); if(!s) return;
+      s.innerHTML=\`
+        <div class="compact-mix">
+          <div class="cmix-gen">
+            <div class="cmix-gen-orb"></div>
+            <div><div class="cmix-gen-txt">MINV2-AI が Mix を作成中</div><div class="cmix-gen-sub">似た曲を選曲しています...</div></div>
           </div>
         </div>\`;
     }
 
-    async function generateMix(){
-      renderMixGenerating();
-      try{
-        const r=await fetch('/api/ai/mix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:VIDEO_TITLE,channel:VIDEO_CH})});
-        const j=await r.json();
-        if(!j.raw) throw new Error('empty');
-        const titles=parseMixTitles(j.raw);
-        if(titles.length<3) throw new Error('few');
-        // 各タイトルを検索して実在動画に解決
-        const playlist=[];
-        // 先頭に現在の動画を入れる
-        playlist.push({id:VIDEO_ID,title:VIDEO_TITLE,channelTitle:VIDEO_CH,thumbnail:'https://i.ytimg.com/vi/'+VIDEO_ID+'/mqdefault.jpg'});
-        const found=await Promise.all(titles.map(t=>searchOne(t)));
-        for(const f of found){ if(f && f.id!==VIDEO_ID && !playlist.some(p=>p.id===f.id)) playlist.push(f); }
-        if(playlist.length<2) throw new Error('noresolve');
-        MIX_STATE={playlist,index:0};
-        sessionStorage.setItem('mix_playlist', JSON.stringify(playlist));
+    // 提案（未再生・コンパクトカード）
+    function renderMixSuggest(){
+      const s=mixSlot(); if(!s || !MIX_SUGGEST) return;
+      const items=MIX_SUGGEST.items;
+      const cover=items[0];
+      const artists=[...new Set(items.map(i=>i.channelTitle).filter(Boolean))].slice(0,4).join('、');
+      s.innerHTML=\`
+        <div class="compact-mix">
+          <div class="compact-mix-inner" id="cmixPlay">
+            <div class="cmix-thumb-wrap"><div class="cmix-stack"><div class="cmix-thumb">
+              <img src="\${escHtml(cover.thumbnail)}" onerror="this.src='https://i.ytimg.com/vi/\${cover.id}/mqdefault.jpg'">
+              <div class="cmix-badge">\${mixBadgeSvg} Mix</div>
+            </div></div></div>
+            <div class="cmix-info">
+              <div class="cmix-title">\${escHtml(MIX_SUGGEST.label)}</div>
+              <div class="cmix-artists">\${escHtml(artists||'おすすめの楽曲')}</div>
+            </div>
+          </div>
+        </div>\`;
+      const el=document.getElementById('cmixPlay');
+      if(el) el.addEventListener('click', ()=>{
+        // 現在の動画を先頭にして Mix 開始
+        const pl=[{id:VIDEO_ID,title:VIDEO_TITLE,channelTitle:VIDEO_CH,thumbnail:'https://i.ytimg.com/vi/'+VIDEO_ID+'/mqdefault.jpg'}];
+        for(const it of items){ if(it.id!==VIDEO_ID && !pl.some(p=>p.id===it.id)) pl.push(it); }
+        sessionStorage.setItem('mix_playlist', JSON.stringify(pl));
         sessionStorage.setItem('mix_index','0');
-        renderMix(playlist,0,true);
-      }catch(e){
-        console.warn('mix fail',e);
-        document.getElementById('mixContainer').innerHTML='';
-      }
+        sessionStorage.setItem('mix_label', MIX_SUGGEST.label);
+        MIX_STATE={playlist:pl,index:0,label:MIX_SUGGEST.label};
+        renderMixPlaying();
+      });
     }
 
-    function parseMixTitles(raw){
-      let t=raw.replace(/\`\`\`[\\s\\S]*?\`\`\`/g,' ').replace(/^\\s*[-*\\d+.)\\s]+/gm,'');
-      const parts=t.split('.').map(s=>s.trim()).filter(s=>s.length>=3);
-      const out=[],seen=new Set();
-      for(let p of parts){ p=p.replace(/^[\\s\\-*・•●▶]+/,'').trim(); if(p.length<3||p.length>120) continue; const k=p.toLowerCase(); if(seen.has(k))continue; seen.add(k); out.push(p); }
-      return out.slice(0,12);
-    }
-
-    async function searchOne(title){
-      try{
-        const r=await fetch('/api/1-search?q='+encodeURIComponent(title));
-        if(!r.ok) return null;
-        const d=await r.json();
-        let it=Array.isArray(d)?d.find(x=>x&&x.id):(d&&d.id?d:(d&&d.items?d.items.find(x=>x&&x.id):null));
-        if(!it||!it.id) return null;
-        return {id:it.id,title:it.title||title,channelTitle:it.channelTitle||it.shortBylineText?.runs?.[0]?.text||'',thumbnail:it.thumbnail?.thumbnails?.[0]?.url||'https://i.ytimg.com/vi/'+it.id+'/mqdefault.jpg'};
-      }catch(e){ return null; }
-    }
-
-    function renderMix(playlist, index, animate){
-      const total=playlist.length;
+    // 再生中（展開されたリスト・現在位置ハイライト）
+    function renderMixPlaying(){
+      const s=mixSlot(); if(!s || !MIX_STATE) return;
+      const {playlist,index,label}=MIX_STATE;
       const body=playlist.map((it,i)=>\`
         <a href="/video/\${it.id}" class="mix-item \${i===index?'playing':''}" onclick="event.preventDefault(); playMixAt(\${i});">
           <div class="mix-idx">\${i===index?'<i class=\\"fas fa-volume-high\\" style=\\"color:#3ea6ff\\"></i>':(i+1)}</div>
           <img class="mix-thumb" src="\${escHtml(it.thumbnail)}" onerror="this.src='https://i.ytimg.com/vi/\${it.id}/mqdefault.jpg'">
           <div style="min-width:0;"><div class="mix-it-title">\${escHtml(it.title)}</div><div class="mix-it-ch">\${escHtml(it.channelTitle||'')}</div></div>
         </a>\`).join('');
-      document.getElementById('mixContainer').innerHTML=\`
+      s.innerHTML=\`
         <div class="mix-card">
           <div class="mix-header">
-            <svg class="mix-icon" viewBox="0 0 24 24"><defs><linearGradient id="mg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4285f4"/><stop offset="0.5" stop-color="#9b72cb"/><stop offset="1" stop-color="#d96570"/></linearGradient></defs><path fill="url(#mg2)" d="M12 2l2.4 6.5L21 9l-5 4.2L17.5 20 12 16.3 6.5 20 8 13.2 3 9l6.6-.5z"/></svg>
-            <div style="flex:1;"><div class="mix-title-txt">Mix - \${escHtml(VIDEO_CH||'おすすめ')}</div><div class="mix-sub-txt">\${index+1} / \${total} ・ ✨ Gemini 生成</div></div>
+            <svg class="mix-icon" viewBox="0 0 24 24"><defs><linearGradient id="mg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4285f4"/><stop offset="0.5" stop-color="#9b72cb"/><stop offset="1" stop-color="#d96570"/></linearGradient></defs><path fill="url(#mg2)" d="M4 6h12v2H4zm0 4h12v2H4zm0 4h8v2H4zm10 0l6-3-6-3z" transform="scale(0.9)"/></svg>
+            <div style="flex:1;"><div class="mix-title-txt">\${escHtml(label||('Mix - '+VIDEO_CH))}</div><div class="mix-sub-txt">\${index+1} / \${playlist.length} ・ 自動再生中</div></div>
+            <button class="mix-close" onclick="closeMix(event)" title="Mixを終了">✕</button>
           </div>
           <div class="mix-body">\${body}</div>
         </div>\`;
+      // アクティブ項目までスクロール
+      setTimeout(()=>{ const a=s.querySelector('.mix-item.playing'); if(a) a.scrollIntoView({block:'nearest'}); },100);
+    }
+
+    function closeMix(e){
+      if(e) e.stopPropagation();
+      sessionStorage.removeItem('mix_playlist');
+      sessionStorage.removeItem('mix_index');
+      sessionStorage.removeItem('mix_label');
+      MIX_STATE=null;
+      // 提案に戻す
+      if(MIX_SUGGEST) renderMixSuggest(); else if(mixSlot()) mixSlot().innerHTML='';
     }
 
     function playMixAt(i){
@@ -1626,14 +1786,17 @@ const shortsHtml = `
     let askBusy=false;
     async function sendAsk(){
       if(askBusy) return;
-      const input=document.getElementById('askInput'); const q=input.value.trim(); if(!q) return;
-      const body=document.getElementById('askBody'); const sug=document.getElementById('askSuggest'); if(sug) sug.style.display='none';
+      const input=document.getElementById('askInput'); let q=input.value.trim(); if(!q) return;
+      if(q.length>400) q=q.slice(0,400); // クライアント側も文字数制限（AI保護）
+      const body=document.getElementById('askBody');
+      const hero=body.querySelector('.ask-hero'); if(hero) hero.style.display='none';
+      const sug=document.getElementById('askSuggest'); if(sug) sug.style.display='none';
       input.value='';
       body.insertAdjacentHTML('beforeend', '<div class="ask-msg user">'+escHtml(q)+'</div>');
       const thinking=document.createElement('div'); thinking.className='ask-msg ai thinking'; thinking.innerHTML='<span class="dots">考えています</span>'; body.appendChild(thinking); body.scrollTop=body.scrollHeight;
       askBusy=true; document.getElementById('askSend').disabled=true;
       try{
-        const r=await fetch('/api/ai/ask/'+VIDEO_ID,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,title:VIDEO_TITLE,channel:VIDEO_CH,description:VIDEO_DESC})});
+        const r=await fetch('/api/ai/ask/'+VIDEO_ID,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,title:VIDEO_TITLE,channel:VIDEO_CH})});
         const d=await r.json();
         thinking.classList.remove('thinking'); thinking.textContent=d.answer||d.error||'回答を取得できませんでした。';
       }catch(e){ thinking.classList.remove('thinking'); thinking.textContent='エラーが発生しました。もう一度お試しください。'; }
@@ -1645,18 +1808,25 @@ const shortsHtml = `
      * ================================================================= */
     function openSettings(){
       const wrap=document.createElement('div');
-      wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:7000;display:flex;align-items:center;justify-content:center;';
+      wrap.className='yt-modal-backdrop';
       wrap.onclick=e=>{ if(e.target===wrap) wrap.remove(); };
-      wrap.innerHTML=\`<div style="background:#212121;border-radius:16px;padding:24px;width:min(420px,92vw);border:1px solid #333;">
-        <h2 style="margin:0 0 16px;font-size:18px;">設定</h2>
-        <label style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #333;">
-          <div><div style="font-weight:600;">自動で次の動画を再生</div><div style="font-size:12px;color:#aaa;">動画終了時に関連動画の一番上へ移動します</div></div>
-          <input type="checkbox" id="setAutoNext" \${SETTINGS.autoNext?'checked':''} style="width:44px;height:24px;">
-        </label>
-        <div style="text-align:right;margin-top:16px;"><button class="an-cancel" onclick="this.closest('div[style]').parentElement.remove()">閉じる</button></div>
-      </div>\`;
+      wrap.innerHTML=\`
+        <div class="yt-modal">
+          <div class="yt-modal-head">設定</div>
+          <div class="yt-modal-body">
+            <div class="yt-setting-row">
+              <div>
+                <div class="yt-setting-label">自動再生</div>
+                <div class="yt-setting-desc">動画が終了したら、関連動画の一番上の動画を自動的に再生します。</div>
+              </div>
+              <label class="yt-switch"><input type="checkbox" id="setAutoNext" \${SETTINGS.autoNext?'checked':''}><span class="slider"></span></label>
+            </div>
+          </div>
+          <div class="yt-modal-foot"><button id="ytModalClose">完了</button></div>
+        </div>\`;
       document.body.appendChild(wrap);
       wrap.querySelector('#setAutoNext').addEventListener('change', e=>{ SETTINGS.autoNext=e.target.checked; });
+      wrap.querySelector('#ytModalClose').addEventListener('click', ()=> wrap.remove());
     }
 
     /* =================================================================
@@ -1813,17 +1983,68 @@ app.get("/api/qualities/:videoId", async (req, res) => {
 });
 
 /* =====================================================================
+ *  音楽判定 (純アルゴリズム・AI不使用・怪しければ切り捨て)
+ * ===================================================================== */
+const MUSIC_POSITIVE = /(official\s*(music\s*)?video|\bmv\b|m\/v|【\s*mv\s*】|\blyric(s)?\b|official\s*audio|【\s*official\b|feat\.?|ft\.?|\bremix\b|\bcover\b|acoustic|(live|ライブ)\s*(performance|session|映像)|歌ってみた|ミュージックビデオ|\bost\b|vevo|full\s*album|mixtape|カバー|弾いてみた|ピアノ(演奏|カバー)?|piano\s*(cover|version)|\bacoustic\b|三味線|オルゴール)/i;
+const MUSIC_NEGATIVE = /(tutorial|how\s*to|解説|実況|gameplay|game\s*play|レビュー|review|\bvlog\b|podcast|ラジオ|ニュース|\bnews\b|講座|使い方|検証|開封|unboxing|作り方|料理|レシピ|まとめ|ランキング|エピソード|\bep\.?\d|生配信|切り抜き|ゆっくり|会議|セミナー|授業|di?y)/i;
+// 「アーティスト - 曲名」形式 (両側に十分な語)
+const DASH_FORM = /[^\s\-–—]{2,}\s*[-–—]\s*[^\s\-–—]{2,}/;
+
+// タイトル+チャンネルから音楽か厳格判定。怪しい(判定材料が弱い)場合は false。
+function detectMusic(title, channel) {
+  title = String(title || "");
+  channel = String(channel || "");
+  if (!title) return false;
+  if (MUSIC_NEGATIVE.test(title)) return false;                 // 否定シグナル → 切り捨て
+  if (/(- topic$|\bvevo\b|official\s*(artist|music))/i.test(channel)) return true; // 音楽系チャンネル
+  if (MUSIC_POSITIVE.test(title)) return true;                  // 肯定シグナル
+  // ダッシュ形式 + 短めタイトル(曲名は概ね短い) のみ音楽とみなす。それ以外は切り捨て。
+  if (DASH_FORM.test(title) && title.length <= 60 && !MUSIC_NEGATIVE.test(channel)) return true;
+  return false;
+}
+
+// 検索クエリが音楽系ジャンルか（ピアノ/歌ってみた/remix 等）
+const MUSIC_QUERY_HINT = /(ピアノ|piano|歌ってみた|remix|リミックス|\bmv\b|カバー|cover|弾いてみた|作業用bgm|\bbgm\b|プレイリスト|playlist|音楽|\bsong(s)?\b|\bmusic\b|\bl(o|0)-?fi\b|オルゴール|アコースティック|acoustic|\bost\b|サントラ|j-?pop|k-?pop|edm|ボカロ|ボーカロイド|vocaloid|アニソン|オフィシャル|official\s*audio)/i;
+
+// アーティスト名を推定（"Artist - Song" / "Song / Artist" / チャンネル名）
+function guessArtist(title, channel) {
+  title = String(title || ""); channel = String(channel || "");
+  const dash = title.match(/^\s*([^-–—]{2,40})\s*[-–—]/);
+  if (dash) return dash[1].trim();
+  const chClean = channel.replace(/\s*-\s*topic$/i, "").replace(/vevo$/i, "").replace(/official.*$/i, "").trim();
+  if (chClean && chClean.length <= 30) return chClean;
+  return "";
+}
+
+/* =====================================================================
  *  暗号化 AI プロキシ (nie-ai / scira-gemini-3.1-flash-lite)
  *  クライアントは生の URL・モデル名を一切知らない
+ *  ※ AI保護のため全エンドポイントに厳格な文字数制限を適用
  * ===================================================================== */
+const AI_LIMITS = {
+  questionMax: 400,     // Ask の質問
+  msgTotalMax: 6000,    // chat の全メッセージ合計
+  fieldMax: 300,        // title/channel 等の単一フィールド
+  commentMax: 1200      // Ask に渡す上位コメント合計
+};
+function clip(s, n) { return String(s || "").slice(0, n); }
 
-// (A) 汎用チャット (AIプレイリスト生成に使用)
-app.post("/api/ai/chat", express.json({ limit: "256kb" }), async (req, res) => {
+// (A) 汎用チャット (AIプレイリスト生成に使用) — 文字数ガード付き
+app.post("/api/ai/chat", express.json({ limit: "32kb" }), async (req, res) => {
   try {
-    const messages = Array.isArray(req.body?.messages) ? req.body.messages : null;
+    let messages = Array.isArray(req.body?.messages) ? req.body.messages : null;
     if (!messages) return res.status(400).json({ error: "messages required" });
-    const temperature = typeof req.body.temperature === "number" ? req.body.temperature : 0.75;
-    const maxTokens = typeof req.body.max_tokens === "number" ? req.body.max_tokens : 1000;
+    // メッセージ数と合計文字数を制限してAIを保護
+    messages = messages.slice(0, 6).map(m => ({
+      role: ["system", "user", "assistant"].includes(m.role) ? m.role : "user",
+      content: clip(m.content, 3000)
+    }));
+    const total = messages.reduce((a, m) => a + m.content.length, 0);
+    if (total > AI_LIMITS.msgTotalMax) {
+      return res.status(413).json({ error: "入力が長すぎます" });
+    }
+    const temperature = typeof req.body.temperature === "number" ? Math.min(1, Math.max(0, req.body.temperature)) : 0.75;
+    const maxTokens = Math.min(900, typeof req.body.max_tokens === "number" ? req.body.max_tokens : 700);
     const content = await callNieAI(messages, { temperature, maxTokens, retries: 3 });
     res.json({ content });
   } catch (e) {
@@ -1831,50 +2052,56 @@ app.post("/api/ai/chat", express.json({ limit: "256kb" }), async (req, res) => {
   }
 });
 
-// (B) 動画の「Ask」機能: 概要欄を読み込ませて質問に答える
-app.post("/api/ai/ask/:videoId", express.json({ limit: "128kb" }), async (req, res) => {
+// (B) 動画の「Ask」機能: タイトル + 上位コメントだけを読み込ませて回答（概要欄全文は使わない）
+app.post("/api/ai/ask/:videoId", express.json({ limit: "16kb" }), async (req, res) => {
   const videoId = req.params.videoId;
-  const question = String(req.body?.question || "").trim();
+  const question = clip(String(req.body?.question || "").trim(), AI_LIMITS.questionMax);
   if (!question) return res.status(400).json({ error: "question required" });
   try {
-    // 概要欄・タイトルを取得（渡されていれば優先、なければ解決）
-    let title = req.body?.title || "";
-    let description = req.body?.description || "";
-    let channel = req.body?.channel || "";
-    if (!description || !title) {
+    let title = clip(req.body?.title, AI_LIMITS.fieldMax);
+    let channel = clip(req.body?.channel, AI_LIMITS.fieldMax);
+    if (!title) {
       const meta = await resolveVideoMeta(videoId);
       title = title || meta.title;
       channel = channel || meta.channelName;
     }
+    // 上位コメントを取得（最大8件、合計文字数制限）
+    let topComments = [];
+    try {
+      const c = await orbyGetComments(videoId, 1);
+      topComments = (c.comments || []).slice(0, 8).map(x => `- ${clip(x.text, 150)}`);
+    } catch (e) {}
+    let commentsBlock = topComments.join("\n");
+    if (commentsBlock.length > AI_LIMITS.commentMax) commentsBlock = commentsBlock.slice(0, AI_LIMITS.commentMax);
+
     const context =
       `動画タイトル: ${title || "(不明)"}\n` +
       `チャンネル: ${channel || "(不明)"}\n` +
-      `概要欄:\n${(description || "(概要欄なし)").slice(0, 4000)}`;
+      `視聴者の上位コメント:\n${commentsBlock || "(コメントなし)"}`;
     const messages = [
       { role: "system", content:
-        "あなたはYouTube動画の内容について答えるアシスタント『Ask』です。" +
-        "与えられた動画タイトルと概要欄の情報だけを根拠に、簡潔で分かりやすい日本語で答えてください。" +
-        "概要欄に情報が無い質問には推測で断定せず「概要欄からは分かりません」と正直に答えてください。" +
-        "回答は3〜5文程度、必要なら箇条書きも可。" },
+        "あなたはYouTube動画について答えるアシスタント『Ask』です。" +
+        "与えられた『動画タイトル』と『視聴者の上位コメント』だけを根拠に、簡潔で分かりやすい日本語で答えてください。" +
+        "情報が不足する質問には断定せず「その情報はここからは分かりません」と正直に答えてください。" +
+        "回答は3〜5文程度。" },
       { role: "user", content: `${context}\n\n【質問】${question}` }
     ];
-    const content = await callNieAI(messages, { temperature: 0.5, maxTokens: 700, retries: 3 });
+    const content = await callNieAI(messages, { temperature: 0.5, maxTokens: 600, retries: 3 });
     res.json({ answer: content });
   } catch (e) {
     res.status(502).json({ error: "Ask応答の取得に失敗しました", detail: e.message });
   }
 });
 
-// (C) Mix プレイリスト生成: 音楽動画のとき、同アーティスト/類似ジャンルの動画をまとめる
-app.post("/api/ai/mix", express.json({ limit: "64kb" }), async (req, res) => {
-  const title = String(req.body?.title || "").trim();
-  const channel = String(req.body?.channel || "").trim();
+// (C) AIプレイリスト生成（ホームの✨プレイリスト用）— 文字数ガード付き
+app.post("/api/ai/mix", express.json({ limit: "16kb" }), async (req, res) => {
+  const title = clip(String(req.body?.title || "").trim(), AI_LIMITS.fieldMax);
+  const channel = clip(String(req.body?.channel || "").trim(), AI_LIMITS.fieldMax);
   if (!title) return res.status(400).json({ error: "title required" });
   try {
     const messages = [
       { role: "system", content:
-        "あなたは音楽の Mix プレイリストを作るAIです。" +
-        "【厳守】\n" +
+        "あなたは音楽の Mix プレイリストを作るAIです。【厳守】\n" +
         "1. 前置き・挨拶・説明は一切書かない。\n" +
         "2. YouTubeに実在する有名で人気の楽曲だけを10曲前後、各タイトルの末尾に必ず「.」を付けて区切る。\n" +
         "3. 与えられた楽曲と同じアーティスト、または非常に近いジャンル/雰囲気の曲を選ぶ。\n" +
@@ -1882,52 +2109,135 @@ app.post("/api/ai/mix", express.json({ limit: "64kb" }), async (req, res) => {
         "5. アーティスト名を必ず含め、検索でヒットしやすい正確な公式タイトルにする。\n" +
         "6. 同じ曲の重複は禁止。渡された曲そのものは含めない。" },
       { role: "user", content:
-        `再生中の楽曲:「${title}」${channel ? ` / アーティスト・チャンネル:「${channel}」` : ""}\n` +
-        "この曲を聴いている人が続けて聴きたくなる、同じアーティストや似たジャンルの曲でMixを作ってください。" }
+        `再生中の楽曲:「${title}」${channel ? ` / アーティスト:「${channel}」` : ""}\n` +
+        "同じアーティストや似たジャンルの曲でMixを作ってください。" }
     ];
-    const content = await callNieAI(messages, { temperature: 0.8, maxTokens: 900, retries: 3 });
+    const content = await callNieAI(messages, { temperature: 0.8, maxTokens: 800, retries: 3 });
     res.json({ raw: content });
   } catch (e) {
     res.status(502).json({ error: "Mix生成に失敗しました", detail: e.message });
   }
 });
 
-// (D) 音楽判定: タイトルから音楽動画かどうかを判定（ヒューリスティック + AI フォールバック）
-const isMusicCache = new Map(); // videoId -> bool
-app.get("/api/ai/is-music/:videoId", async (req, res) => {
-  const videoId = req.params.videoId;
+// (D) 音楽判定 (AI不使用・純アルゴリズム)
+app.get("/api/ai/is-music/:videoId", (req, res) => {
   const title = String(req.query.title || "").trim();
   const channel = String(req.query.channel || "").trim();
+  const isMusic = detectMusic(title, channel);
+  res.json({ isMusic, source: "algorithm", title, channel });
+});
 
-  if (isMusicCache.has(videoId)) {
-    return res.json({ isMusic: isMusicCache.get(videoId), source: "cache", title, channel });
+/* =====================================================================
+ *  アルゴリズム Mix ビルダー (AI不使用)
+ *  動画ページ: 同アーティスト + 類似ジャンルの上位動画を選曲
+ *  検索ページ: 音楽クエリ → 同ジャンル/アーティストの上位動画で Mix
+ * ===================================================================== */
+
+// yts の音楽的スコアリング（再生数・音楽シグナルで並べ替え）
+function parseViewNum(t) {
+  if (!t) return 0;
+  const s = String(t).replace(/,/g, "");
+  const m = s.match(/([\d.]+)\s*(億|万|k|m|b)?/i);
+  if (!m) return 0;
+  let n = parseFloat(m[1]) || 0;
+  const u = (m[2] || "").toLowerCase();
+  if (u === "億") n *= 1e8; else if (u === "万") n *= 1e4;
+  else if (u === "k") n *= 1e3; else if (u === "m") n *= 1e6; else if (u === "b") n *= 1e9;
+  return n;
+}
+
+// 動画/検索用 Mix を構築。返り値: [{id,title,channelTitle,thumbnail}]
+async function buildMusicMix({ seedTitle = "", seedChannel = "", query = "", excludeId = "", limit = 15 }) {
+  const artist = guessArtist(seedTitle, seedChannel);
+  const queries = [];
+
+  if (query) {
+    // 検索ページ: クエリ自体 + ジャンル拡張
+    queries.push(query);
+    queries.push(`${query} 人気`);
+    queries.push(`${query} mix`);
+  }
+  if (artist) {
+    queries.push(`${artist}`);
+    queries.push(`${artist} songs`);
+  }
+  if (seedChannel && seedChannel !== artist) queries.push(seedChannel);
+  if (!queries.length && seedTitle) queries.push(seedTitle);
+
+  // 重複クエリ除去
+  const uniqQ = [...new Set(queries)].slice(0, 4);
+
+  const lists = await Promise.all(uniqQ.map(q =>
+    yts.GetListByKeyword(q, false, 20).then(r => r.items || []).catch(() => [])
+  ));
+
+  const seen = new Set();
+  if (excludeId) seen.add(excludeId);
+  const scored = [];
+  const normTitles = new Set();
+
+  for (let li = 0; li < lists.length; li++) {
+    for (const it of lists[li]) {
+      if (!it || it.type !== "video" || !it.id) continue;
+      if (seen.has(it.id)) continue;
+      const title = it.title || "";
+      const ch = it.channelTitle || it.shortBylineText?.runs?.[0]?.text || "";
+      // 音楽のみ採用（怪しいものは切り捨て）
+      if (!detectMusic(title, ch)) continue;
+      // タイトル正規化で重複曲を排除
+      const norm = title.toLowerCase().replace(/\s+/g, "").replace(/official|lyrics|mv|musicvideo|video|feat.*|ft.*|remix|【.*?】|\(.*?\)/g, "").slice(0, 14);
+      if (normTitles.has(norm)) continue;
+      normTitles.add(norm);
+      seen.add(it.id);
+
+      const views = parseViewNum(it.viewCountText);
+      // スコア: 先頭クエリ(=アーティスト/クエリ本体)ほど加点 + 再生数 + 同アーティスト一致
+      let score = views;
+      score += (uniqQ.length - li) * 5e7; // クエリ順の重み
+      if (artist && (title.toLowerCase().includes(artist.toLowerCase()) || ch.toLowerCase().includes(artist.toLowerCase()))) score += 2e8;
+
+      scored.push({
+        id: it.id,
+        title,
+        channelTitle: ch,
+        thumbnail: it.thumbnail?.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${it.id}/mqdefault.jpg`,
+        _score: score
+      });
+    }
   }
 
-  // 強力なヒューリスティック（肯定シグナル / 否定シグナル）
-  const positive = /(official\s*(music\s*)?video|\bmv\b|m\/v|【mv】|lyric|lyrics|official\s*audio|\baudio\b|feat\.?|ft\.?|remix|cover|acoustic|live\s*(performance|session)|歌ってみた|オフィシャル|ミュージックビデオ|\bost\b|\bost\b|- topic|vevo|song|full\s*album|mixtape|カバー|弾いてみた|\bmusic\b)/i;
-  const negative = /(tutorial|how\s*to|解説|実況|gameplay|レビュー|review|vlog|podcast|ニュース|news|講座|使い方|検証|開封|unboxing|作り方|料理|レシピ)/i;
-  // 「アーティスト - 曲名」形式もヒント
-  const dashForm = /\S+\s+-\s+\S+/.test(title) && !negative.test(title);
+  scored.sort((a, b) => b._score - a._score);
+  return scored.slice(0, limit).map(({ _score, ...x }) => x);
+}
 
-  let isMusic = false, source = "heuristic";
-  if (negative.test(title)) {
-    isMusic = false;
-  } else if (positive.test(title) || /vevo|- topic$/i.test(channel) || dashForm) {
-    isMusic = true;
-  } else {
-    // 曖昧なら AI で判定（軽量）
-    try {
-      const content = await callNieAI([
-        { role: "system", content: "あなたは分類器です。与えられたYouTube動画が『音楽（楽曲/MV/ライブ演奏など）』かどうかを判定し、YES か NO の一語だけで答えてください。" },
-        { role: "user", content: `タイトル:「${title}」\nチャンネル:「${channel}」\nこれは音楽動画ですか？ YES か NO のみ。` }
-      ], { temperature: 0, maxTokens: 5, retries: 2 });
-      isMusic = /yes/i.test(content);
-      source = "ai";
-    } catch (e) { isMusic = false; }
+// 動画ページ Mix (同アーティスト・類似ジャンル)
+app.get("/api/mix/video/:videoId", async (req, res) => {
+  const videoId = req.params.videoId;
+  const title = clip(req.query.title, AI_LIMITS.fieldMax);
+  const channel = clip(req.query.channel, AI_LIMITS.fieldMax);
+  if (!detectMusic(title, channel)) return res.json({ isMusic: false, items: [] });
+  try {
+    const mix = await buildMusicMix({ seedTitle: title, seedChannel: channel, excludeId: videoId, limit: 20 });
+    const artist = guessArtist(title, channel);
+    res.json({ isMusic: true, artist, items: mix });
+  } catch (e) {
+    res.json({ isMusic: true, items: [] });
   }
+});
 
-  isMusicCache.set(videoId, isMusic);
-  res.json({ isMusic, source, title, channel });
+// 検索ページ Mix (音楽クエリ検出時)
+app.get("/api/mix/search", async (req, res) => {
+  const q = clip(String(req.query.q || "").trim(), AI_LIMITS.fieldMax);
+  if (!q) return res.json({ isMusic: false, items: [] });
+  const isMusicQuery = MUSIC_QUERY_HINT.test(q);
+  if (!isMusicQuery) return res.json({ isMusic: false, items: [] });
+  try {
+    const mix = await buildMusicMix({ query: q, limit: 20 });
+    if (mix.length < 4) return res.json({ isMusic: false, items: [] }); // 音楽が集まらなければ出さない
+    res.json({ isMusic: true, query: q, items: mix });
+  } catch (e) {
+    res.json({ isMusic: false, items: [] });
+  }
 });
 
 // --- 修正: 既存の /api/channel (ページングをより確実に) ---
