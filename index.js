@@ -1105,18 +1105,23 @@ const shortsHtml = `
         .an-ring { width:34px; height:34px; flex-shrink:0; }
 
         /* Mix (Gemini generating effect) */
-        .mix-card { border-radius:12px; overflow:hidden; margin-bottom:16px; background:var(--bg-secondary); border:1px solid #333; }
-        .mix-header { display:flex; align-items:center; gap:10px; padding:12px 14px; background:linear-gradient(100deg, rgba(66,133,244,0.18), rgba(155,114,203,0.18), rgba(217,101,112,0.18)); }
-        .mix-header .mix-icon { width:26px; height:26px; }
-        .mix-title-txt { font-weight:700; font-size:15px; }
-        .mix-sub-txt { font-size:11px; color:var(--text-sub); }
-        .mix-close { background:none; border:none; color:var(--text-sub); font-size:14px; cursor:pointer; width:28px; height:28px; border-radius:50%; flex-shrink:0; }
-        .mix-close:hover { background:rgba(255,255,255,0.1); color:#fff; }
-        .mix-body { padding:8px; }
-        .mix-item { display:flex; gap:10px; padding:6px; border-radius:8px; text-decoration:none; color:inherit; align-items:center; transition:background .15s; }
+        /* Mix 再生パネル（YouTube本家風・フラットな濃いグレー） */
+        .mix-card { border-radius:12px; overflow:hidden; margin-bottom:16px; background:#212121; border:1px solid #303030; }
+        .mix-header { display:flex; align-items:flex-start; gap:10px; padding:14px 16px 12px; border-bottom:1px solid #303030; }
+        .mix-header .mix-icon { width:24px; height:24px; margin-top:2px; flex-shrink:0; }
+        .mix-title-txt { font-weight:700; font-size:16px; line-height:1.3; }
+        .mix-sub-txt { font-size:12px; color:var(--text-sub); margin-top:3px; }
+        .mix-head-actions { display:flex; flex-direction:column; gap:2px; margin-left:auto; }
+        .mix-close, .mix-more { background:none; border:none; color:var(--text-main); font-size:14px; cursor:pointer; width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+        .mix-close:hover, .mix-more:hover { background:rgba(255,255,255,0.1); }
+        .mix-body { padding:6px; max-height:420px; overflow-y:auto; }
+        .mix-body::-webkit-scrollbar { width:6px; } .mix-body::-webkit-scrollbar-thumb { background:#5a5a5a; border-radius:3px; }
+        .mix-item { display:flex; gap:8px; padding:6px 8px; border-radius:8px; text-decoration:none; color:inherit; align-items:center; transition:background .15s; position:relative; }
         .mix-item:hover { background:var(--bg-hover); }
-        .mix-item.playing { background:rgba(62,166,255,0.12); }
-        .mix-idx { width:20px; text-align:center; font-size:12px; color:var(--text-sub); flex-shrink:0; }
+        .mix-item.playing { background:rgba(255,255,255,0.08); }
+        .mix-thumb-box { position:relative; flex-shrink:0; }
+        .mix-dur { position:absolute; bottom:3px; right:3px; background:rgba(0,0,0,0.8); color:#fff; font-size:10px; font-weight:600; padding:1px 3px; border-radius:3px; }
+        .mix-idx { width:20px; text-align:center; font-size:12px; color:var(--text-sub); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
         .mix-thumb { width:80px; height:46px; border-radius:6px; object-fit:cover; flex-shrink:0; background:#222; }
         .mix-it-title { font-size:13px; font-weight:500; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
         .mix-it-ch { font-size:11px; color:var(--text-sub); margin-top:2px; }
@@ -1179,6 +1184,10 @@ const shortsHtml = `
         .cmix-gen-orb { width:28px; height:28px; border-radius:50%; flex-shrink:0; background:conic-gradient(from 0deg,#5a7fd6,#8a7fc0,#c07f9a,#5a7fd6); animation:spin 2.6s linear infinite; opacity:.9; }
         .cmix-gen-txt { font-size:13px; font-weight:600; }
         .cmix-gen-sub { font-size:11px; color:var(--text-sub); margin-top:2px; }
+        .compact-mix.pending .compact-mix-inner { position:relative; border:1px solid #303030; background:var(--bg-secondary); }
+        .compact-mix.pending .compact-mix-inner:hover { background:var(--bg-hover); }
+        .cmix-dismiss { position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.5); border:none; color:#fff; width:24px; height:24px; border-radius:50%; cursor:pointer; font-size:12px; line-height:1; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s; }
+        .compact-mix.pending:hover .cmix-dismiss { opacity:1; }
         /* 設定モーダル (YouTube風) */
         .yt-modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:7000; display:flex; align-items:center; justify-content:center; }
         .yt-modal { background:#282828; border-radius:12px; width:min(440px,92vw); overflow:hidden; box-shadow:0 8px 40px rgba(0,0,0,0.6); }
@@ -1630,16 +1639,24 @@ const shortsHtml = `
             if(idx<0) idx=parseInt(savedIdx)||0;
             MIX_STATE={playlist:pl,index:idx,label:savedLabel};
             sessionStorage.setItem('mix_index',String(idx));
+            // 別動画へ移った時のために保留Mixもクリア（再生中が優先）
+            clearPendingMix();
             renderMixPlaying();
             return;
           }
-          // 含まれない動画に来た → Mix はもう邪魔なのでクリア（提案表示に切替）
+          // 含まれない動画に来た → 再生中Mixは「保留Mix」に格下げして邪魔にならないコンパクト表示へ
+          demoteToPendingMix(pl, savedLabel);
           sessionStorage.removeItem('mix_playlist');
           sessionStorage.removeItem('mix_index');
           sessionStorage.removeItem('mix_label');
         }catch(e){}
       }
-      // 2) 音楽なら Mix を提案（アルゴリズム・AI不使用）
+
+      // 2) 保留Mix（前に生成/再生していたが未クリックのもの）があればコンパクト表示
+      //    2回表示されて一度もクリックされなければ非表示（=邪魔しない）
+      if(showPendingMixIfAny()) return;
+
+      // 3) 音楽なら 新規 Mix を提案（アルゴリズム・AI不使用）
       try{
         const q=new URLSearchParams({title:VIDEO_TITLE, channel:VIDEO_CH});
         renderMixGenerating();
@@ -1652,6 +1669,78 @@ const shortsHtml = `
           if(mixSlot()) mixSlot().innerHTML='';
         }
       }catch(e){ if(mixSlot()) mixSlot().innerHTML=''; }
+    }
+
+    /* ===== 保留Mix（コンパクト・2回未クリックで消滅）ロジック =====
+     * pending_mix = { playlist, label, seed:{id,title,channel}, views, dismissed }
+     * ・関係ない動画/ホームでは compact bar として残す
+     * ・表示のたび views++。views>=2 かつ未クリックなら dismissed=true で以後非表示
+     * ・クリックされたら再生モードへ昇格し pending_mix は消す */
+    function getPendingMix(){
+      try{ return JSON.parse(sessionStorage.getItem('pending_mix')||'null'); }catch(e){ return null; }
+    }
+    function setPendingMix(p){ try{ sessionStorage.setItem('pending_mix', JSON.stringify(p)); }catch(e){} }
+    function clearPendingMix(){ sessionStorage.removeItem('pending_mix'); }
+
+    // 再生中だったMixを、別動画に来た時点で「保留」に降格
+    function demoteToPendingMix(playlist, label){
+      const existing=getPendingMix();
+      // 既存の保留があってdismissed済みなら復活させない
+      if(existing && existing.dismissed) return;
+      const seedItem = playlist[0] || {};
+      setPendingMix({
+        playlist, label: label||('Mix - '+(seedItem.channelTitle||'おすすめ')),
+        views: existing ? existing.views : 0,
+        dismissed: false
+      });
+    }
+
+    // 保留Mixがあればコンパクト表示（2回未クリックで消滅）。表示したら true
+    function showPendingMixIfAny(){
+      const p=getPendingMix();
+      if(!p || p.dismissed || !p.playlist || !p.playlist.length) return false;
+      // 表示回数を加算。2回目の表示まで許可、その後（3回目に入る前）に消滅
+      p.views = (p.views||0) + 1;
+      if(p.views > 2){ p.dismissed=true; setPendingMix(p); return false; }
+      setPendingMix(p);
+      renderPendingMixCompact(p);
+      return true;
+    }
+
+    function renderPendingMixCompact(p){
+      const s=mixSlot(); if(!s) return;
+      const items=p.playlist;
+      const cover=items[0]||{};
+      const artists=[...new Set(items.map(i=>i.channelTitle).filter(Boolean))].slice(0,4).join('、');
+      s.innerHTML=\`
+        <div class="compact-mix pending">
+          <div class="compact-mix-inner" id="pendingMixPlay">
+            <div class="cmix-thumb-wrap"><div class="cmix-stack"><div class="cmix-thumb">
+              <img src="\${escHtml(cover.thumbnail||('https://i.ytimg.com/vi/'+cover.id+'/mqdefault.jpg'))}" onerror="this.src='https://i.ytimg.com/vi/\${cover.id}/mqdefault.jpg'">
+              <div class="cmix-badge">\${mixBadgeSvg} Mix</div>
+            </div></div></div>
+            <div class="cmix-info">
+              <div class="cmix-title">\${escHtml(p.label)}</div>
+              <div class="cmix-artists">\${escHtml(artists||'前回の Mix を続けて再生')}</div>
+            </div>
+            <button class="cmix-dismiss" title="非表示" onclick="event.stopPropagation(); dismissPendingMix();">✕</button>
+          </div>
+        </div>\`;
+      const el=document.getElementById('pendingMixPlay');
+      if(el) el.addEventListener('click',(e)=>{
+        if(e.target.closest('.cmix-dismiss')) return;
+        // クリック → 再生モードへ昇格
+        const pl=p.playlist;
+        sessionStorage.setItem('mix_playlist', JSON.stringify(pl));
+        sessionStorage.setItem('mix_index','0');
+        sessionStorage.setItem('mix_label', p.label);
+        clearPendingMix();
+        location.href='/video/'+pl[0].id;
+      });
+    }
+    function dismissPendingMix(){
+      const p=getPendingMix(); if(p){ p.dismissed=true; setPendingMix(p); }
+      if(mixSlot()) mixSlot().innerHTML='';
     }
 
     // 生成中（落ち着いたデザイン・関連の一番下）
@@ -1698,22 +1787,27 @@ const shortsHtml = `
       });
     }
 
-    // 再生中（展開されたリスト・現在位置ハイライト）
+    // 再生中（YouTube本家風・現在位置ハイライト + 再生アイコン）
     function renderMixPlaying(){
       const s=mixSlot(); if(!s || !MIX_STATE) return;
       const {playlist,index,label}=MIX_STATE;
       const body=playlist.map((it,i)=>\`
         <a href="/video/\${it.id}" class="mix-item \${i===index?'playing':''}" onclick="event.preventDefault(); playMixAt(\${i});">
-          <div class="mix-idx">\${i===index?'<i class=\\"fas fa-volume-high\\" style=\\"color:#3ea6ff\\"></i>':(i+1)}</div>
-          <img class="mix-thumb" src="\${escHtml(it.thumbnail)}" onerror="this.src='https://i.ytimg.com/vi/\${it.id}/mqdefault.jpg'">
+          <div class="mix-idx">\${i===index?'<svg viewBox="0 0 24 24" width="12" height="12" fill="#fff"><path d="M8 5v14l11-7z"/></svg>':(i+1)}</div>
+          <div class="mix-thumb-box"><img class="mix-thumb" src="\${escHtml(it.thumbnail)}" onerror="this.src='https://i.ytimg.com/vi/\${it.id}/mqdefault.jpg'">\${it.lengthText?\`<span class="mix-dur">\${escHtml(it.lengthText)}</span>\`:''}</div>
           <div style="min-width:0;"><div class="mix-it-title">\${escHtml(it.title)}</div><div class="mix-it-ch">\${escHtml(it.channelTitle||'')}</div></div>
         </a>\`).join('');
       s.innerHTML=\`
         <div class="mix-card">
           <div class="mix-header">
-            <svg class="mix-icon" viewBox="0 0 24 24"><defs><linearGradient id="mg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4285f4"/><stop offset="0.5" stop-color="#9b72cb"/><stop offset="1" stop-color="#d96570"/></linearGradient></defs><path fill="url(#mg2)" d="M4 6h12v2H4zm0 4h12v2H4zm0 4h8v2H4zm10 0l6-3-6-3z" transform="scale(0.9)"/></svg>
-            <div style="flex:1;"><div class="mix-title-txt">\${escHtml(label||('Mix - '+VIDEO_CH))}</div><div class="mix-sub-txt">\${index+1} / \${playlist.length} ・ 自動再生中</div></div>
-            <button class="mix-close" onclick="closeMix(event)" title="Mixを終了">✕</button>
+            <svg class="mix-icon" viewBox="0 0 24 24" fill="var(--text-main)"><path d="M4 6h12v2H4zm0 4h12v2H4zm0 4h8v2H4zm10 0l6-3-6-3z"/></svg>
+            <div style="flex:1;min-width:0;">
+              <div class="mix-title-txt">\${escHtml(label||('Mix - '+VIDEO_CH))}</div>
+              <div class="mix-sub-txt">YouTubeがあなたに作成したMix ・ \${index+1} / \${playlist.length}</div>
+            </div>
+            <div class="mix-head-actions">
+              <button class="mix-close" onclick="closeMix(event)" title="Mixを終了"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+            </div>
           </div>
           <div class="mix-body">\${body}</div>
         </div>\`;
@@ -2201,6 +2295,7 @@ async function buildMusicMix({ seedTitle = "", seedChannel = "", query = "", exc
         title,
         channelTitle: ch,
         thumbnail: it.thumbnail?.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${it.id}/mqdefault.jpg`,
+        lengthText: it.length?.simpleText || it.lengthText || "",
         _score: score
       });
     }
