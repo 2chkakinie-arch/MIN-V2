@@ -1408,7 +1408,20 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         const res = await fetch(endpoint);
         if (!res.ok) return [];
         const data = await res.json();
-        return data.items || [];
+        const items = data.items || [];
+        // 取得したチャンネルアバターを sessionStorage に保存 → 動画ページで再取得しない
+        try {
+          const map = JSON.parse(sessionStorage.getItem('channelAvatars') || '{}');
+          for (const it of items) {
+            const av = it.channelThumbnail || it.channelImage;
+            if (av) {
+              if (it.channelId) map[it.channelId] = av;
+              if (it.channelTitle) map['name:' + it.channelTitle] = av;
+            }
+          }
+          sessionStorage.setItem('channelAvatars', JSON.stringify(map));
+        } catch (e) {}
+        return items;
       } catch (err) {
         return [];
       }
@@ -2435,9 +2448,8 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     /* =============== ✨ AI Playlist (MIN-Pro-AI) ========================== */
     /* ===================================================================== */
     (function initAiPlaylist() {
-      const GROQ_API_KEY = "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";
-      const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-      const MODEL_NAME = "meta-llama/llama-4-scout-17b-16e-instruct";
+      // AI は暗号化サーバープロキシ経由（生の URL / モデル名はクライアントに露出しない）
+      const AI_PROXY_URL = "/api/ai/chat";
 
       const PRESETS = [
         "Music", "EDM", "ゲーム実況", "J-POP", "アニソン",
@@ -2652,16 +2664,12 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         }
       }
 
-      /* ===== Call Groq ===== */
+      /* ===== Call AI (暗号化プロキシ経由: nie-ai / scira-gemini-3.1-flash-lite) ===== */
       async function callGroq(messages) {
-        const res = await fetch(GROQ_URL, {
+        const res = await fetch(AI_PROXY_URL, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: MODEL_NAME,
             messages,
             temperature: 0.75,
             max_tokens: 900
@@ -2672,7 +2680,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           throw new Error(`AI API error ${res.status}: ${errText.slice(0,200)}`);
         }
         const data = await res.json();
-        const txt = data?.choices?.[0]?.message?.content || '';
+        const txt = data?.content || '';
         return txt;
       }
 
@@ -2810,7 +2818,25 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           </div>
         `;
         contentEl.querySelector('#aimAgain').addEventListener('click', launchEntry);
-        contentEl.querySelector('#aimPlay').addEventListener('click', () => openPlayer(items));
+        // 「動画を再生」: メインプレイヤーへ。プレイリストは Mix として引き継ぎ、
+        // 動画終了時にデフォルトで次のプレイリスト動画へ自動遷移する。
+        contentEl.querySelector('#aimPlay').addEventListener('click', () => playAsPlaylist(items));
+      }
+
+      /* ===== プレイリストをメイン動画ページで再生（自動で次へ） ===== */
+      function playAsPlaylist(items) {
+        const playlist = items.map(it => ({
+          id: it.id,
+          title: it.title || '',
+          channelTitle: it.channelTitle || '',
+          thumbnail: it.thumbnail || ('https://i.ytimg.com/vi/' + it.id + '/mqdefault.jpg')
+        })).filter(x => x.id);
+        if (!playlist.length) return;
+        try {
+          sessionStorage.setItem('mix_playlist', JSON.stringify(playlist));
+          sessionStorage.setItem('mix_index', '0');
+        } catch (e) {}
+        window.location.href = '/video/' + playlist[0].id;
       }
 
       /* ===== Open Player in new tab (about:blank trick) ===== */
