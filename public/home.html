@@ -773,6 +773,23 @@
     .empty-home-title { font-size: 24px; font-weight: 700; margin: 0 0 12px; color: var(--text); }
     .empty-home-sub { font-size: 14px; color: var(--text-muted); line-height: 1.7; margin: 0 0 28px; }
     .empty-home-chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    /* 保留Mix コンパクトバー（ホーム） */
+    .home-pending-mix { max-width: 560px; margin: 12px 16px 0; }
+    .hpm-inner { position: relative; display: flex; gap: 12px; padding: 8px; border-radius: 12px; background: var(--card, #212121); border: 1px solid var(--border, #303030); cursor: pointer; transition: background .15s; }
+    .hpm-inner:hover { background: var(--hover, #2a2a2a); }
+    .hpm-thumb-wrap { position: relative; width: 160px; flex-shrink: 0; }
+    .hpm-stack { position: relative; }
+    .hpm-stack::before, .hpm-stack::after { content:''; position:absolute; left:50%; transform:translateX(-50%); border-radius:8px; }
+    .hpm-stack::before { top:-6px; width:88%; height:12px; background:#3a3a3a; opacity:.5; }
+    .hpm-stack::after { top:-3px; width:94%; height:12px; background:#4a4a4a; opacity:.8; }
+    .hpm-thumb { position: relative; width:100%; aspect-ratio:16/9; border-radius:8px; overflow:hidden; background:#000; z-index:1; }
+    .hpm-thumb img { width:100%; height:100%; object-fit:cover; }
+    .hpm-badge { position:absolute; bottom:6px; right:6px; background:rgba(0,0,0,0.85); color:#fff; font-size:11px; font-weight:600; padding:3px 6px; border-radius:4px; display:flex; align-items:center; gap:4px; z-index:2; }
+    .hpm-info { flex:1; min-width:0; padding-top:2px; }
+    .hpm-title { font-size:15px; font-weight:700; line-height:1.3; margin-bottom:4px; color:var(--text); }
+    .hpm-artists { font-size:12.5px; color:var(--text-muted); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .hpm-dismiss { position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.5); border:none; color:#fff; width:24px; height:24px; border-radius:50%; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s; }
+    .hpm-inner:hover .hpm-dismiss { opacity:1; }
     .empty-chip { background: var(--card, #272727); color: var(--text); border: none; border-radius: 18px; padding: 9px 16px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s; font-family: inherit; }
     .empty-chip:hover { background: var(--hover, #3f3f3f); }
     body.light-mode .empty-chip { background: #f2f2f2; }
@@ -2203,6 +2220,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     };
 
     window.onload = () => {
+      showHomePendingMix(); // 保留Mix（2回未クリックで消滅）をホームにもコンパクト表示
       const params = new URLSearchParams(window.location.search);
       const q = params.get('q');
       if (q) {
@@ -2218,6 +2236,49 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         isPersonalized = false;
         renderEmptyState();
       }
+    };
+
+    /* ===== 保留Mix（ホーム用コンパクト表示・2回未クリックで消滅） ===== */
+    function homeGetPendingMix(){ try{ return JSON.parse(sessionStorage.getItem('pending_mix')||'null'); }catch(e){ return null; } }
+    function homeSetPendingMix(p){ try{ sessionStorage.setItem('pending_mix', JSON.stringify(p)); }catch(e){} }
+    function showHomePendingMix(){
+      const p = homeGetPendingMix();
+      if (!p || p.dismissed || !p.playlist || !p.playlist.length) return;
+      p.views = (p.views||0) + 1;
+      if (p.views > 2){ p.dismissed = true; homeSetPendingMix(p); return; }
+      homeSetPendingMix(p);
+      const items = p.playlist, cover = items[0]||{};
+      const artists = [...new Set(items.map(i=>i.channelTitle).filter(Boolean))].slice(0,4).join('、');
+      const bar = document.createElement('div');
+      bar.className = 'home-pending-mix';
+      bar.innerHTML = `
+        <div class="hpm-inner" id="hpmPlay">
+          <div class="hpm-thumb-wrap"><div class="hpm-stack"><div class="hpm-thumb">
+            <img src="${(cover.thumbnail||('https://i.ytimg.com/vi/'+cover.id+'/mqdefault.jpg')).replace(/"/g,'')}" onerror="this.src='https://i.ytimg.com/vi/${cover.id}/mqdefault.jpg'">
+            <div class="hpm-badge"><svg viewBox="0 0 24 24" width="13" height="13" fill="#fff"><path d="M4 6h12v2H4zm0 4h12v2H4zm0 4h8v2H4zm10 0l6-3-6-3z"/></svg> Mix</div>
+          </div></div></div>
+          <div class="hpm-info">
+            <div class="hpm-title">${(p.label||'Mix').replace(/</g,'&lt;')}</div>
+            <div class="hpm-artists">${(artists||'前回の Mix を続けて再生').replace(/</g,'&lt;')}</div>
+          </div>
+          <button class="hpm-dismiss" title="非表示" onclick="event.stopPropagation(); homeDismissPendingMix(this);">✕</button>
+        </div>`;
+      const main = document.querySelector('.main');
+      const chips = document.getElementById('chipsBar');
+      if (chips && chips.parentNode) chips.parentNode.insertBefore(bar, chips.nextSibling);
+      else if (main) main.insertBefore(bar, main.firstChild);
+      bar.querySelector('#hpmPlay').addEventListener('click', (e)=>{
+        if (e.target.closest('.hpm-dismiss')) return;
+        sessionStorage.setItem('mix_playlist', JSON.stringify(items));
+        sessionStorage.setItem('mix_index','0');
+        sessionStorage.setItem('mix_label', p.label||'Mix');
+        sessionStorage.removeItem('pending_mix');
+        location.href = '/video/' + items[0].id;
+      });
+    }
+    window.homeDismissPendingMix = function(btn){
+      const p = homeGetPendingMix(); if (p){ p.dismissed = true; homeSetPendingMix(p); }
+      const bar = btn.closest('.home-pending-mix'); if (bar) bar.remove();
     };
 
     // ===== LIBRARY: History / Liked / Playlists =====
