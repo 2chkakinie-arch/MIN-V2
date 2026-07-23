@@ -16,11 +16,11 @@
   "author": "Kakinie",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
     "cookie-parser": "^1.4.6",
     "ejs": "^3.1.9",
+    "express": "^4.18.2",
     "node-fetch": "^2.6.7",
     "undici": "^6.19.8",
-    "youtube-search-api": "^1.2.2"
+    "youtube-search-api": "^2.0.1"
   }
 }
