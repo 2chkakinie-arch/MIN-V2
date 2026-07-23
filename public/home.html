@@ -766,6 +766,45 @@
     /* Loading / Empty */
     #loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
     .empty { text-align: center; color: var(--text-muted); padding: 40px; font-size: 14px; }
+    /* ===== 初回利用の空状態 ===== */
+    .video-grid.empty-state-grid { display: block; }
+    .empty-home { max-width: 560px; margin: 8vh auto 0; text-align: center; padding: 32px 20px; }
+    .empty-home-icon { color: var(--text-muted); opacity: 0.7; margin-bottom: 20px; display: flex; justify-content: center; }
+    .empty-home-title { font-size: 24px; font-weight: 700; margin: 0 0 12px; color: var(--text); }
+    .empty-home-sub { font-size: 14px; color: var(--text-muted); line-height: 1.7; margin: 0 0 28px; }
+    .empty-home-chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    .empty-chip { background: var(--card, #272727); color: var(--text); border: none; border-radius: 18px; padding: 9px 16px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s; font-family: inherit; }
+    .empty-chip:hover { background: var(--hover, #3f3f3f); }
+    body.light-mode .empty-chip { background: #f2f2f2; }
+    body.light-mode .empty-chip:hover { background: #e5e5e5; }
+
+    /* ===== 検索ページの Mix カード (YouTube風・コンパクト) ===== */
+    .search-mix-card { display: flex; gap: 14px; background: var(--card, #212121); border: 1px solid var(--border, #303030); border-radius: 14px; padding: 12px; margin: 0 0 20px; align-items: flex-start; grid-column: 1 / -1; }
+    body.light-mode .search-mix-card { background: #f8f8f8; border-color: #e5e5e5; }
+    .smix-thumb-wrap { position: relative; width: 200px; flex-shrink: 0; }
+    .smix-thumb-stack { position: relative; }
+    .smix-thumb-stack::before, .smix-thumb-stack::after { content: ''; position: absolute; left: 50%; border-radius: 8px; background: #3a3a3a; transform: translateX(-50%); }
+    .smix-thumb-stack::before { top: -6px; width: 90%; height: 12px; opacity: 0.55; }
+    .smix-thumb-stack::after { top: -3px; width: 95%; height: 12px; opacity: 0.8; background:#4a4a4a; }
+    .smix-thumb { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background: #000; z-index: 1; }
+    .smix-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .smix-badge { position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,0.85); color: #fff; font-size: 12px; font-weight: 600; padding: 3px 7px; border-radius: 4px; display: flex; align-items: center; gap: 5px; z-index: 2; }
+    .smix-badge svg { width: 14px; height: 14px; fill: #fff; }
+    .smix-meta { flex: 1; min-width: 0; padding-top: 2px; }
+    .smix-title { font-size: 16px; font-weight: 700; color: var(--text); margin: 0 0 4px; }
+    .smix-artists { font-size: 13px; color: var(--text-muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .smix-play { margin-top: 12px; display: inline-flex; align-items: center; gap: 7px; background: var(--text); color: var(--bg, #0f0f0f); border: none; border-radius: 18px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .smix-play svg { width: 16px; height: 16px; fill: currentColor; }
+    /* Mix 生成中（検索ページのみ・落ち着いたデザイン） */
+    .smix-gen { display: flex; align-items: center; gap: 14px; background: var(--card, #212121); border: 1px solid var(--border, #303030); border-radius: 14px; padding: 16px; margin: 0 0 20px; grid-column: 1 / -1; }
+    body.light-mode .smix-gen { background: #f8f8f8; border-color: #e5e5e5; }
+    .smix-gen-orb { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; background: conic-gradient(from 0deg, #5a7fd6, #8a7fc0, #c07f9a, #5a7fd6); animation: spin 2.6s linear infinite; opacity: 0.9; }
+    .smix-gen-txt { font-size: 14px; font-weight: 600; color: var(--text); }
+    .smix-gen-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    @media (max-width: 640px) {
+      .search-mix-card { flex-direction: column; }
+      .smix-thumb-wrap { width: 100%; }
+    }
 
     /* Version badge */
     .version-badge {
@@ -1468,6 +1507,60 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       updateShortsToggleUI();
     });
 
+    function isDefaultQuery(q) { return !q || q === 'trending'; }
+
+    /* ===== 検索ページの Mix（音楽クエリ検出時・AI不使用アルゴリズム） ===== */
+    async function loadSearchMix(query) {
+      // スロットを videoGrid の直前に用意
+      let slot = document.getElementById('searchMixSlot');
+      if (!slot) {
+        slot = document.createElement('div');
+        slot.id = 'searchMixSlot';
+        videoGrid.parentNode.insertBefore(slot, videoGrid);
+      }
+      // 落ち着いた生成中デザイン（検索時のみ）
+      slot.innerHTML = `
+        <div class="smix-gen" id="smixGen">
+          <div class="smix-gen-orb"></div>
+          <div><div class="smix-gen-txt">MINV2-AI がプレイリストを生成しています</div><div class="smix-gen-sub">「${(query||'').replace(/</g,'&lt;')}」に合う楽曲を選曲中...</div></div>
+        </div>`;
+      try {
+        const res = await fetch(`/api/mix/search?q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        if (!data.isMusic || !data.items || data.items.length < 4) { slot.remove(); return; }
+        renderSearchMix(slot, query, data.items);
+      } catch (e) { slot.remove(); }
+    }
+
+    function renderSearchMix(slot, query, items) {
+      const cover = items[0];
+      const artists = [...new Set(items.map(i => i.channelTitle).filter(Boolean))].slice(0, 4).join('、');
+      slot.innerHTML = `
+        <div class="search-mix-card">
+          <div class="smix-thumb-wrap">
+            <div class="smix-thumb-stack">
+              <div class="smix-thumb">
+                <img src="${cover.thumbnail}" onerror="this.src='https://i.ytimg.com/vi/${cover.id}/mqdefault.jpg'">
+                <div class="smix-badge"><svg viewBox="0 0 24 24"><path d="M4 6h12v2H4zm0 4h12v2H4zm0 4h8v2H4zm10 0l6-3-6-3z"/></svg> Mix</div>
+              </div>
+            </div>
+          </div>
+          <div class="smix-meta">
+            <div class="smix-title">Mix - ${(query||'').replace(/</g,'&lt;')}</div>
+            <div class="smix-artists">${artists || 'おすすめの楽曲'}</div>
+            <button class="smix-play" id="smixPlayBtn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> 再生</button>
+          </div>
+        </div>`;
+      slot.querySelector('#smixPlayBtn').addEventListener('click', () => {
+        try {
+          sessionStorage.setItem('mix_playlist', JSON.stringify(items));
+          sessionStorage.setItem('mix_index', '0');
+          sessionStorage.setItem('mix_label', 'Mix - ' + query);
+        } catch (e) {}
+        window.location.href = '/video/' + items[0].id;
+      });
+    }
+
     async function loadContent(query = 'trending', page = 0) {
       if (isFetching) return;
       isFetching = true;
@@ -1475,10 +1568,15 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
 
       if (page === 0) {
         displayedIds.clear();
+        videoGrid.classList.remove('empty-state-grid');
         videoGrid.innerHTML = '';
         shortsRow.innerHTML = '';
         shortsSection.style.display = 'none';
         shortsExpanded = true;
+        const oldMix = document.getElementById('searchMixSlot');
+        if (oldMix) oldMix.remove();
+        // 検索時のみ: 音楽クエリなら Mix を並行生成して先頭に表示
+        if (!isDefaultQuery(query)) loadSearchMix(query);
       }
 
       const isDefault = query === 'trending';
@@ -2061,6 +2159,49 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     // パーソナライズモードかどうか
     let isPersonalized = true;
 
+    // 視聴履歴・高評価・登録があるか（初回利用判定）
+    function homeHasUserData() {
+      try {
+        const hist = JSON.parse(localStorage.getItem('mt_history') || '[]');
+        const liked = JSON.parse(localStorage.getItem('mt_liked') || '[]');
+        let subs = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('subscribed_') && localStorage.getItem(k) === 'true') subs++;
+        }
+        return (hist.length + liked.length + subs) > 0;
+      } catch (e) { return false; }
+    }
+
+    // 初回利用時の空状態（おすすめニュースの代わりに「まず検索」を表示）
+    function renderEmptyState() {
+      if (shortsSection) shortsSection.style.display = 'none';
+      if (loading) loading.style.display = 'none';
+      videoGrid.classList.add('empty-state-grid');
+      videoGrid.innerHTML = `
+        <div class="empty-home">
+          <div class="empty-home-icon">
+            <svg viewBox="0 0 24 24" width="72" height="72" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </div>
+          <h2 class="empty-home-title">まずは動画を検索してみましょう</h2>
+          <p class="empty-home-sub">視聴履歴をもとに、あなた好みのおすすめがここに表示されます。<br>気になるキーワードやアーティストを検索してみてください。</p>
+          <div class="empty-home-chips" id="emptyHomeChips"></div>
+        </div>`;
+      const suggestions = ['Music', 'Lo-Fi', 'ゲーム実況', 'J-POP', 'ピアノ', 'アニソン', 'EDM', 'K-POP'];
+      const wrap = document.getElementById('emptyHomeChips');
+      if (wrap) {
+        wrap.innerHTML = suggestions.map(s => `<button class="empty-chip" onclick="doHomeSearch('${s}')">${s}</button>`).join('');
+      }
+    }
+    window.doHomeSearch = function (q) {
+      searchInput.value = q;
+      currentQuery = q; currentPage = 0; isPersonalized = false;
+      videoGrid.classList.remove('empty-state-grid');
+      recordSearchHistory && recordSearchHistory(q);
+      history.pushState(null, '', '/search?q=' + encodeURIComponent(q));
+      loadContent(q, 0);
+    };
+
     window.onload = () => {
       const params = new URLSearchParams(window.location.search);
       const q = params.get('q');
@@ -2069,9 +2210,13 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         searchInput.value = q;
         isPersonalized = false;
         loadContent(q, 0);
-      } else {
+      } else if (homeHasUserData()) {
         isPersonalized = true;
         loadPersonalizedFeed(0);
+      } else {
+        // 初回利用: おすすめ（ニュース）は出さず、検索を促す
+        isPersonalized = false;
+        renderEmptyState();
       }
     };
 
