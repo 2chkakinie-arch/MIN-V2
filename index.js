@@ -2401,7 +2401,7 @@ const shortsHtml = `
             <svg class="mix-icon" viewBox="0 0 24 24" fill="var(--text-main)"><path d="M4 6h12v2H4zm0 4h12v2H4zm0 4h8v2H4zm10 0l6-3-6-3z"/></svg>
             <div style="flex:1;min-width:0;">
               <div class="mix-title-txt">\${escHtml(label||('Mix - '+VIDEO_CH))}</div>
-              <div class="mix-sub-txt">YouTubeAIがあなたに作成したMix ・ ${index+1} / ${playlist.length}</div>
+              <div class="mix-sub-txt">YouTubeAIがあなたに作成したMix ・ \${index+1} / \${playlist.length}</div>
             </div>
             <div class="mix-head-actions">
               <button class="mix-close" onclick="closeMix(event)" title="Mixを終了"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
@@ -2569,11 +2569,64 @@ const shortsHtml = `
 </html>
     `;
     res.send(html);
-  } catch (err) { next(err); }
+  } catch (err) {
+    // 【重要】動画ページは何があっても絶対にエラーページへ落とさない。
+    // 予期せぬ例外(外部API全滅・メタ取得失敗・テンプレート組立失敗等)が起きても、
+    // videoId だけで確実に再生できる最小フォールバック再生ページを返す。
+    console.error("[/video/:id] fatal, serving safe fallback:", err && err.message);
+    try {
+      res.status(200).send(renderVideoFallbackPage(req.params.id));
+    } catch (e2) {
+      // それでも失敗する場合の最終手段: 生の nocookie 埋め込み
+      const vid = String(req.params.id || "").replace(/[^A-Za-z0-9_-]/g, "");
+      res.status(200).type("html").send(
+        '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>YouTubeAI</title>' +
+        '<style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%}</style></head>' +
+        '<body><iframe src="https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe></body></html>'
+      );
+    }
+  }
 });
 
+// 動画ページの最小フォールバック（外部API不要で必ず表示できる再生ページ）
+function renderVideoFallbackPage(rawId) {
+  const vid = String(rawId || "").replace(/[^A-Za-z0-9_-]/g, "");
+  return `<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTubeAI</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0b0f;color:#f5f5f7;font-family:Roboto,Arial,sans-serif;}
+  .nav{height:56px;display:flex;align-items:center;padding:0 16px;background:#0b0b0f;}
+  .nav a{color:#fff;text-decoration:none;font-weight:800;font-size:20px;letter-spacing:-1px;display:flex;align-items:center;gap:2px;}
+  .nav i{color:#ff0000;font-size:26px;margin-right:4px;}
+  .nav .ai{background:linear-gradient(120deg,#7c5cff,#22d3ee);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .wrap{max-width:1000px;margin:0 auto;padding:16px;}
+  .player{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden;}
+  .player iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+  .note{margin-top:14px;font-size:13px;color:#a9a9b8;line-height:1.6;}
+  .back{display:inline-block;margin-top:16px;padding:10px 16px;border-radius:999px;background:#1c1c24;color:#f5f5f7;text-decoration:none;font-size:14px;}
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="nav"><a href="/"><i class="fab fa-youtube"></i>YouTube<span class="ai">AI</span></a></div>
+  <div class="wrap">
+    <div class="player">
+      <iframe src="https://www.youtube-nocookie.com/embed/${vid}?autoplay=1" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>
+    </div>
+    <div class="note">この動画は簡易プレイヤーで再生しています。しばらくしてからページを再読み込みすると、通常のプレイヤー（画質選択・関連動画・コメント等）に戻ります。</div>
+    <a class="back" href="/">← ホームに戻る</a>
+  </div>
+</body>
+</html>`;
+}
 
-app.get("/nothing/*", (req, res) => {
+
+// 【修正】Express4/5 双方で安全に動くワイルドカード表記に変更（'/nothing/*' は Express5 で起動不能）。
+app.get(/^\/nothing\/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "home.html"));
 });
 
