@@ -12,33 +12,26 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f0f0f;
-      --surface: #212121;
-      --card: #272727;
-      --text: #f1f1f1;
-      --text-muted: #aaaaaa;
-      --text-secondary: #717171;
-      --accent: #f1f1f1
-      --border: #3f3f3f;
-      --chip-bg: #272727;
-      --chip-active-bg: #f1f1f1;
-      --chip-active-text: #0f0f0f;
-      --header-height: 56px;
+      --bg: #0b0b0f;
+      --surface: #17171d;
+      --card: #1c1c24;
+      --card-hover: #24242e;
+      --text: #f5f5f7;
+      --text-muted: #a9a9b8;
+      --text-secondary: #75758a;
+      --accent: #7c5cff;
+      --accent-2: #22d3ee;
+      --accent-grad: linear-gradient(120deg, #7c5cff 0%, #22d3ee 100%);
+      --border: #2a2a35;
+      --chip-bg: #1c1c24;
+      --chip-active-bg: #f5f5f7;
+      --chip-active-text: #0b0b0f;
+      --ring: rgba(124,92,255,0.55);
+      --header-height: 58px;
       --chips-height: 52px;
       --sidebar-width: 240px;
       --sidebar-collapsed: 72px;
-    }
-    body.light-mode {
-      --bg: #ffffff;
-      --surface: #f2f2f2;
-      --card: #e5e5e5;
-      --text: #0f0f0f;
-      --text-muted: #606060;
-      --text-secondary: #909090;
-      --border: #e0e0e0;
-      --chip-bg: #f2f2f2;
-      --chip-active-bg: #0f0f0f;
-      --chip-active-text: #ffffff;
+      --radius: 14px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
@@ -74,26 +67,25 @@
     body.light-mode .menu-btn:hover { background: rgba(0,0,0,0.06); }
 
     .logo {
-      display: flex; align-items: center; gap: 2px;
+      display: flex; align-items: center; gap: 3px;
       text-decoration: none; color: var(--text);
     }
     .logo-icon {
-      background: var(--accent);
-      border-radius: 6px;
-      width: 34px; height: 24px;
+      width: 30px; height: 30px;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-    .logo-icon svg { width: 16px; height: 16px; fill: white; }
+    .logo-icon svg { width: 30px; height: auto; filter: drop-shadow(0 2px 6px rgba(255,0,0,.25)); }
     .logo-text {
-      font-size: 18px; font-weight: 700; letter-spacing: -0.5px;
-      margin-left: 4px; white-space: nowrap;
+      font-size: 19px; font-weight: 700; letter-spacing: -0.6px;
+      margin-left: 5px; white-space: nowrap;
     }
-    .logo-sub {
-      font-size: 10px; font-weight: 800; letter-spacing: .5px; color: #fff;
-      background: linear-gradient(135deg,#4f8bff,#a26bff,#ff6bd6);
-      padding: 2px 5px; border-radius: 5px; margin-left: 3px;
-      align-self: flex-start; margin-top: 1px;
+    .logo-ai {
+      font-size: 19px; font-weight: 800; letter-spacing: -0.6px;
+      margin-left: 1px; white-space: nowrap;
+      background: var(--accent-grad);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
     }
 
     /* Search */
@@ -105,29 +97,26 @@
     .search-form {
       display: flex; flex: 1; align-items: center;
       border: 1px solid var(--border);
-      border-radius: 0;
+      border-radius: 999px;
       overflow: hidden;
-      height: 40px;
+      height: 42px;
+      background: rgba(255,255,255,0.03);
+      transition: border-color .15s, box-shadow .15s;
     }
-    .search-form:focus-within { border-color: #1c62b9; }
-    body.light-mode .search-form:focus-within { border-color: #1a73e8; }
+    .search-form:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
     .search-form input {
-      flex: 1; background: var(--bg); border: none;
-      color: var(--text); height: 100%; padding: 0 16px;
-      outline: none; font-size: 16px; font-family: 'Roboto', Arial, sans-serif;
+      flex: 1; background: transparent; border: none;
+      color: var(--text); height: 100%; padding: 0 20px;
+      outline: none; font-size: 15px; font-family: 'Roboto', Arial, sans-serif;
     }
-    body.light-mode .search-form { background: #fff; }
-    body.light-mode .search-form input { background: #fff; }
     .search-btn {
-      background: var(--surface); border: none; border-left: 1px solid var(--border);
-      color: var(--text-muted); width: 64px; height: 100%;
+      background: rgba(255,255,255,0.05); border: none; border-left: 1px solid var(--border);
+      color: var(--text-muted); width: 62px; height: 100%;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; font-size: 18px; flex-shrink: 0;
-      transition: background 0.1s;
+      transition: background 0.15s, color .15s;
     }
-    .search-btn:hover { background: #3f3f3f; }
-    body.light-mode .search-btn { background: #f8f8f8; }
-    body.light-mode .search-btn:hover { background: #e0e0e0; }
+    .search-btn:hover { background: rgba(124,92,255,0.18); color: var(--text); }
     .mic-btn {
       background: var(--surface); border: none; border-radius: 50%;
       color: var(--text); width: 40px; height: 40px;
@@ -208,11 +197,11 @@
     .account-btn { background:none; border:none; cursor:pointer; width:36px; height:36px; border-radius:50%; padding:0; display:flex; align-items:center; justify-content:center; position:relative; }
     .account-avatar-guest { width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.12); color:var(--text); display:flex; align-items:center; justify-content:center; }
     body.light-mode .account-avatar-guest { background:rgba(0,0,0,0.08); }
-    .account-avatar-user { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#4f8bff,#a26bff,#ff6bd6); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; }
-    .account-menu { position:absolute; top:calc(100% + 8px); right:12px; width:290px; background:var(--bg-elev,#212121); border:1px solid var(--border,#303030); border-radius:14px; box-shadow:0 8px 40px rgba(0,0,0,0.5); z-index:4000; overflow:hidden; display:none; }
-    .account-menu.open { display:block; }
+    .account-avatar-user { width:34px; height:34px; border-radius:50%; background:var(--accent-grad); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; }
+    .account-menu { position:absolute; top:calc(100% + 10px); right:12px; width:300px; background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:0 12px 48px rgba(0,0,0,0.55); z-index:4000; overflow:hidden; display:none; }
+    .account-menu.open { display:block; animation:authpop .22s cubic-bezier(.2,.9,.2,1); }
     .am-head { padding:18px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--border,#303030); }
-    .am-head .am-av { width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,#4f8bff,#a26bff,#ff6bd6); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0; }
+    .am-head .am-av { width:44px; height:44px; border-radius:50%; background:var(--accent-grad); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0; }
     .am-head .am-guest-av { width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex-shrink:0; }
     .am-head .am-name { font-size:15px; font-weight:600; word-break:break-all; }
     .am-head .am-status { font-size:12px; color:var(--text-muted); margin-top:2px; }
@@ -220,28 +209,34 @@
     .am-item:hover { background:rgba(255,255,255,0.06); }
     body.light-mode .am-item:hover { background:rgba(0,0,0,0.05); }
     .am-item svg { width:20px; height:20px; fill:currentColor; opacity:.8; }
-    .am-cta { margin:12px 16px; padding:11px; border-radius:10px; border:none; cursor:pointer; font-size:14px; font-weight:700; width:calc(100% - 32px); background:linear-gradient(135deg,#4f8bff,#a26bff); color:#fff; }
+    .am-cta { margin:12px 16px; padding:11px; border-radius:12px; border:none; cursor:pointer; font-size:14px; font-weight:700; width:calc(100% - 32px); background:var(--accent-grad); color:#fff; transition:filter .15s, transform .1s; }
+    .am-cta:hover { filter:brightness(1.08); }
+    .am-cta:active { transform:scale(.98); }
 
     /* Auth modal */
     .auth-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.72); backdrop-filter:blur(4px); z-index:9000; display:none; align-items:center; justify-content:center; padding:20px; }
     .auth-overlay.open { display:flex; }
-    .auth-card { width:100%; max-width:420px; background:var(--bg-elev,#1c1c1c); border:1px solid var(--border,#303030); border-radius:20px; padding:30px 28px; box-shadow:0 20px 70px rgba(0,0,0,0.6); animation:authpop .3s cubic-bezier(.2,.9,.2,1); }
+    .auth-card { position:relative; width:100%; max-width:430px; background:var(--card); border:1px solid var(--border); border-radius:22px; padding:34px 30px; box-shadow:0 24px 80px rgba(0,0,0,0.65); animation:authpop .3s cubic-bezier(.2,.9,.2,1); }
+    .auth-close { position:absolute; top:16px; right:16px; width:34px; height:34px; border-radius:50%; border:none; background:rgba(255,255,255,0.06); color:var(--text-muted); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s, color .15s; }
+    .auth-close:hover { background:rgba(255,255,255,0.12); color:var(--text); }
     @keyframes authpop { from{opacity:0;transform:translateY(16px) scale(.97);} to{opacity:1;transform:none;} }
     .auth-logo { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:6px; }
     .auth-logo svg { width:34px; height:24px; }
     .auth-logo .lg-txt { font-size:20px; font-weight:700; letter-spacing:-.5px; }
-    .auth-logo .lg-pro { font-size:11px; font-weight:700; color:#fff; background:linear-gradient(135deg,#4f8bff,#a26bff); padding:2px 6px; border-radius:6px; }
+    .auth-logo .lg-pro { font-size:11px; font-weight:800; color:#fff; background:var(--accent-grad); padding:2px 7px; border-radius:6px; letter-spacing:.5px; }
     .auth-title { font-size:22px; font-weight:700; text-align:center; margin:14px 0 4px; }
     .auth-sub { font-size:13px; color:var(--text-muted); text-align:center; margin-bottom:22px; }
     .auth-field { margin-bottom:14px; }
     .auth-field label { display:block; font-size:12.5px; color:var(--text-muted); margin-bottom:6px; font-weight:600; }
     .auth-field input { width:100%; box-sizing:border-box; background:var(--bg,#0f0f0f); border:1.5px solid var(--border,#303030); border-radius:10px; padding:12px 14px; color:var(--text); font-size:15px; outline:none; transition:border .15s; }
-    .auth-field input:focus { border-color:#4f8bff; }
-    .auth-btn { width:100%; padding:13px; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; background:linear-gradient(135deg,#4f8bff,#a26bff); color:#fff; transition:opacity .15s; }
+    .auth-field input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
+    .auth-btn { width:100%; padding:13px; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; background:var(--accent-grad); color:#fff; transition:filter .15s, transform .1s; }
+    .auth-btn:hover:not(:disabled) { filter:brightness(1.08); }
+    .auth-btn:active:not(:disabled) { transform:scale(.99); }
     .auth-btn:disabled { opacity:.6; cursor:default; }
-    .auth-btn.ghost { background:transparent; border:1.5px solid var(--border,#303030); color:var(--text); margin-top:10px; }
+    .auth-btn.ghost { background:transparent; border:1.5px solid var(--border); color:var(--text); margin-top:10px; }
     .auth-switch { text-align:center; font-size:13.5px; color:var(--text-muted); margin-top:18px; }
-    .auth-switch a { color:#4f8bff; cursor:pointer; font-weight:600; text-decoration:none; }
+    .auth-switch a { color:var(--accent-2); cursor:pointer; font-weight:600; text-decoration:none; }
     .auth-msg { font-size:13px; border-radius:9px; padding:10px 12px; margin-bottom:14px; display:none; }
     .auth-msg.err { display:block; background:rgba(255,80,80,0.12); color:#ff8080; border:1px solid rgba(255,80,80,0.3); }
     .auth-msg.ok { display:block; background:rgba(80,220,150,0.12); color:#5fe0a0; border:1px solid rgba(80,220,150,0.3); }
@@ -279,6 +274,17 @@
     .theme-radio-label input { accent-color: var(--accent); width: 16px; height: 16px; }
     .theme-radio-label.selected { background: rgba(255,255,255,0.06); }
     body.light-mode .theme-radio-label.selected { background: rgba(0,0,0,0.04); }
+    .settings-toggle-row { display:flex; align-items:center; gap:12px; padding:10px 16px; cursor:pointer; }
+    .settings-toggle-row:hover { background:rgba(255,255,255,0.05); }
+    .settings-toggle-info { flex:1; min-width:0; }
+    .settings-toggle-title { font-size:14px; font-weight:600; color:var(--text); }
+    .settings-toggle-desc { font-size:11.5px; color:var(--text-muted); margin-top:3px; line-height:1.45; }
+    .mini-switch { position:relative; display:inline-block; width:40px; height:22px; flex-shrink:0; }
+    .mini-switch input { opacity:0; width:0; height:0; }
+    .mini-slider { position:absolute; inset:0; background:#4a4a56; border-radius:22px; transition:background .2s; }
+    .mini-slider::before { content:""; position:absolute; height:16px; width:16px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform .2s; }
+    .mini-switch input:checked + .mini-slider { background:var(--accent); }
+    .mini-switch input:checked + .mini-slider::before { transform:translateX(18px); }
     .settings-divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
     .settings-select-group { padding: 8px 16px; display: flex; flex-direction: column; gap: 6px; }
     .settings-select-label { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase; }
@@ -290,19 +296,6 @@
       background-repeat: no-repeat; background-position: right 8px center; padding-right: 24px;
     }
     .playback-hint { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
-    /* AI機能トグル */
-    .ai-toggle-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; cursor:pointer; }
-    .ai-toggle-row:hover { background:rgba(255,255,255,0.06); }
-    body.light-mode .ai-toggle-row:hover { background:rgba(0,0,0,0.04); }
-    .ai-toggle-info { display:flex; flex-direction:column; min-width:0; }
-    .ai-toggle-title { font-size:14px; color:var(--text); font-weight:500; }
-    .ai-toggle-desc { font-size:11px; color:var(--text-secondary); line-height:1.4; margin-top:2px; max-width:170px; }
-    .ai-switch { position:relative; width:42px; height:24px; flex-shrink:0; }
-    .ai-switch input { opacity:0; width:0; height:0; }
-    .ai-slider { position:absolute; inset:0; background:#606060; border-radius:24px; transition:.2s; }
-    .ai-slider::before { content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
-    .ai-switch input:checked + .ai-slider { background:linear-gradient(135deg,#4f8bff,#a26bff); }
-    .ai-switch input:checked + .ai-slider::before { transform:translateX(18px); }
 
     /* ===== SIDEBAR ===== */
     .layout { display: flex; padding-top: var(--header-height); }
@@ -1271,7 +1264,7 @@
           <svg viewBox="0 0 68 48"><path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55c-2.93.78-4.63 3.26-5.42 6.19C.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="#FF0000"/><path d="M45 24 27 14v20" fill="white"/></svg>
         </div>
         <span class="logo-text">YouTube</span>
-        <span class="logo-sub">AI</span>
+        <span class="logo-ai">AI</span>
       </a>
     </div>
 
@@ -1291,25 +1284,13 @@
           <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
         </button>
         <div class="settings-panel" id="settingsPanel">
-          <div class="settings-panel-title">外観</div>
-          <label class="theme-radio-label" id="darkLabel">
-            <input type="radio" name="themeMode" id="themeDark" value="dark" checked>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
-            ダークモード
-          </label>
-          <label class="theme-radio-label" id="lightLabel">
-            <input type="radio" name="themeMode" id="themeLight" value="light">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
-            ライトモード
-          </label>
-          <hr class="settings-divider">
           <div class="settings-panel-title">プライバシー</div>
-          <label class="ai-toggle-row" id="aiToggleRow">
-            <span class="ai-toggle-info">
-              <span class="ai-toggle-title">✨ AI機能</span>
-              <span class="ai-toggle-desc">AIプレイリスト・Mix自動生成・Ask等。オフでAIへの送信を停止</span>
-            </span>
-            <span class="ai-switch"><input type="checkbox" id="aiEnabledToggle" checked><span class="ai-slider"></span></span>
+          <label class="settings-toggle-row" id="aiToggleRow">
+            <div class="settings-toggle-info">
+              <div class="settings-toggle-title"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align:-3px;margin-right:5px;"><path d="M12 2l2.35 6.35L21 10.7l-5.5 3.9L17 21l-5-3.6L7 21l1.5-6.4L3 10.7l6.65-2.35z"/></svg>AI機能を使う</div>
+              <div class="settings-toggle-desc">AIプレイリスト・Ask・Mix自動生成などをすべて無効化します（プライバシー重視）</div>
+            </div>
+            <span class="mini-switch"><input type="checkbox" id="aiEnabledToggle" checked><span class="mini-slider"></span></span>
           </label>
           <hr class="settings-divider">
           <div class="settings-select-group">
@@ -1463,6 +1444,7 @@
     <!-- 認証モーダル（ログイン / 新規登録） -->
     <div id="authOverlay" class="auth-overlay">
       <div class="auth-card" role="dialog" aria-modal="true">
+        <button type="button" class="auth-close" id="authCloseBtn" aria-label="閉じる"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
         <div class="auth-logo">
           <svg viewBox="0 0 68 48"><path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55c-2.93.78-4.63 3.26-5.42 6.19C.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="#FF0000"/><path d="M45 24 27 14v20" fill="white"/></svg>
           <span class="lg-txt">YouTube</span><span class="lg-pro">AI</span>
@@ -2136,10 +2118,6 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     // Settings
     const settingsBtn = document.getElementById('settingsBtn');
     const settingsPanel = document.getElementById('settingsPanel');
-    const themeDark = document.getElementById('themeDark');
-    const themeLight = document.getElementById('themeLight');
-    const darkLabel = document.getElementById('darkLabel');
-    const lightLabel = document.getElementById('lightLabel');
 
     settingsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2150,43 +2128,29 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       if (!settingsBtn.contains(e.target)) settingsPanel.classList.remove('open');
     });
 
-    function applyTheme(isLight) {
-      if (isLight) {
-        document.body.classList.add('light-mode');
-        lightLabel.classList.add('selected'); darkLabel.classList.remove('selected');
-        themeLight.checked = true;
-      } else {
-        document.body.classList.remove('light-mode');
-        darkLabel.classList.add('selected'); lightLabel.classList.remove('selected');
-        themeDark.checked = true;
-      }
-      localStorage.setItem('theme', isLight ? 'light' : 'dark');
-    }
-    themeDark.addEventListener('change', () => { if (themeDark.checked) applyTheme(false); });
-    themeLight.addEventListener('change', () => { if (themeLight.checked) applyTheme(true); });
-    const savedTheme = localStorage.getItem('theme');
-    applyTheme(savedTheme === 'light');
+    // テーマはダーク固定（切り替え機能は廃止）
+    document.body.classList.remove('light-mode');
 
-    /* ===== AI機能マスタースイッチ（プライバシー重視ユーザー向け） =====
-     * オフにすると:
-     *   - ホームの「✨ AIプレイリスト」チップを非表示
-     *   - 動画ページのMix自動生成/AIプレイリスト/Ask を無効化（watch側が localStorage を参照）
-     *   - AI関連エンドポイントへの送信を一切行わない
-     * 設定は localStorage 'setting_ai_enabled' に保存し、全ページで共通参照する。 */
-    function aiEnabled() { return localStorage.getItem('setting_ai_enabled') !== 'false'; }
-    const aiEnabledToggle = document.getElementById('aiEnabledToggle');
-    function applyAiEnabled(on) {
-      localStorage.setItem('setting_ai_enabled', on ? 'true' : 'false');
-      if (aiEnabledToggle) aiEnabledToggle.checked = on;
+    /* ===== AI機能の一括ON/OFF（プライバシー重視向け） ===== */
+    // 'false' のときはすべてのAI機能（AIプレイリスト・Ask・Mix自動生成）を無効化。
+    window.isAiEnabled = function () { return localStorage.getItem('ai_disabled') !== 'true'; };
+    const aiToggle = document.getElementById('aiEnabledToggle');
+    function applyAiVisibility(enabled) {
+      // ホームの ✨AIプレイリスト チップを表示/非表示
       const chip = document.getElementById('chipAiPlaylist');
-      if (chip) chip.style.display = on ? '' : 'none';
-      const chatLink = document.querySelector('.chips-extra-content');
-      if (chatLink) chatLink.style.display = on ? '' : 'none';
+      if (chip) chip.style.display = enabled ? '' : 'none';
     }
-    if (aiEnabledToggle) {
-      aiEnabledToggle.addEventListener('change', () => applyAiEnabled(aiEnabledToggle.checked));
+    if (aiToggle) {
+      aiToggle.checked = window.isAiEnabled();
+      applyAiVisibility(aiToggle.checked);
+      aiToggle.addEventListener('change', () => {
+        localStorage.setItem('ai_disabled', aiToggle.checked ? 'false' : 'true');
+        applyAiVisibility(aiToggle.checked);
+        if (typeof showToast === 'function') showToast(aiToggle.checked ? 'AI機能をオンにしました' : 'AI機能をオフにしました');
+      });
+    } else {
+      applyAiVisibility(window.isAiEnabled());
     }
-    applyAiEnabled(aiEnabled());
 
     // Playback
     const playbackMode = document.getElementById('playbackMode');
@@ -3233,13 +3197,19 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       }
 
       document.getElementById('authGuestLink').onclick = closeAuth;
+      { const cb = document.getElementById('authCloseBtn'); if (cb) cb.onclick = closeAuth; }
       overlay.addEventListener('click', (e) => { if (e.target === overlay) closeAuth(); });
 
       /* ---------- Account button / menu ---------- */
       const accountBtn = document.getElementById('accountBtn');
       const accountMenu = document.getElementById('accountMenu');
       function closeAccountMenu() { accountMenu.classList.remove('open'); }
-      function toggleAccountMenu() { accountMenu.classList.contains('open') ? closeAccountMenu() : openAccountMenu(); }
+      function toggleAccountMenu() {
+        // 未ログイン(ゲスト)の場合は、見にくいドロップダウンではなく
+        // 全画面のログイン/新規登録ポップアップを直接開く。
+        if (!isLoggedIn()) { closeAccountMenu(); openAuth('login'); return; }
+        accountMenu.classList.contains('open') ? closeAccountMenu() : openAccountMenu();
+      }
       function openAccountMenu() { renderAccountMenu(); accountMenu.classList.add('open'); }
 
       function renderAccountMenu() {
@@ -3260,7 +3230,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           head.innerHTML = '<div class="am-guest-av"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div><div><div class="am-name">ゲスト</div><div class="am-status">ログインして同期しましょう</div></div>';
           body.innerHTML =
             '<button class="am-cta" id="amLogin">ログイン</button>' +
-            '<button class="am-item" id="amSignup" style="justify-content:center;color:#4f8bff;font-weight:600;">新規アカウント作成</button>' +
+            '<button class="am-item" id="amSignup" style="justify-content:center;color:var(--accent-2);font-weight:600;">新規アカウント作成</button>' +
             '<div style="padding:0 16px 14px;font-size:12px;color:var(--text-muted);line-height:1.5;">ゲストのままでも全機能を利用できます。ログインすると視聴履歴・登録チャンネル・再生リストが全端末で同期され、おすすめ精度が向上します。</div>';
           body.querySelector('#amLogin').onclick = () => { closeAccountMenu(); openAuth('login'); };
           body.querySelector('#amSignup').onclick = () => { closeAccountMenu(); openAuth('signup'); };
@@ -3274,14 +3244,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         else { av.className = 'account-avatar-guest'; av.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>'; }
       }
 
-      // 【変更】ログアウト中はアカウントボタンを押したら「見にくい小さなドロップダウン」ではなく、
-      // いきなり全画面のログイン/アカウント作成ポップアップを開く（不快な体験を解消）。
-      // ログイン済みのときだけ、アカウント情報の小メニューを開く。
-      accountBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (isLoggedIn()) { toggleAccountMenu(); }
-        else { closeAccountMenu(); openAuth('login'); }
-      });
+      accountBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleAccountMenu(); });
       document.addEventListener('click', (e) => { if (!accountMenu.contains(e.target) && e.target !== accountBtn && !accountBtn.contains(e.target)) closeAccountMenu(); });
 
       window.openAuthModal = openAuth;
