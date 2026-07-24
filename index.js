@@ -144,6 +144,11 @@ async function orbyGetAllStreams(videoId) {
 
   const bestAudio = audioStreams[0] || null;
 
+  // 【新手法】360p muxed (itag18等・音声込み) の映像ストリームを探す。
+  // 高画質(音声なし)の裏でこれを「音声だけ最大」で同期再生し、音声を確実に鳴らす。
+  const muxed360 = videoStreams.find(v => v.hasAudio && v.container === "mp4" && v.heightNum <= 480)
+                || videoStreams.find(v => v.hasAudio);
+
   return {
     ok: true,
     videoId,
@@ -152,7 +157,9 @@ async function orbyGetAllStreams(videoId) {
     // 各画質。360p 以下の muxed(itag18) はそのまま音声込み。それ以外は音声別トラックが必要。
     videoStreams,
     audioStreams,
-    bestAudioUrl: bestAudio ? bestAudio.url : ""
+    bestAudioUrl: bestAudio ? bestAudio.url : "",
+    // 音声つき360pストリームのURL（新しい同期手法の音源）
+    muxed360Url: muxed360 ? muxed360.url : ""
   };
 }
 
@@ -1090,19 +1097,44 @@ const shortsHtml = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${videoData.videoTitle} - YouTube</title>
+    <title>${videoData.videoTitle} - YouTubeAI</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --bg-main:#0f0f0f; --bg-secondary:#272727; --bg-hover:#3f3f3f; --text-main:#f1f1f1; --text-sub:#aaaaaa; --yt-red:#ff0000; --blue:#3ea6ff; }
+        :root { --bg-main:#0f0f0f; --bg-secondary:#272727; --bg-hover:#3f3f3f; --text-main:#f1f1f1; --text-sub:#aaaaaa; --yt-red:#ff0000; --blue:#3ea6ff; --border-col:#303030; --elev:#212121; }
+        /* ライトモード: 全ページでテーマを揃える */
+        body.light-mode { --bg-main:#ffffff; --bg-secondary:#f2f2f2; --bg-hover:#e5e5e5; --text-main:#0f0f0f; --text-sub:#606060; --border-col:#e0e0e0; --elev:#ffffff; }
+        body.light-mode .navbar { box-shadow:0 1px 0 #e5e5e5; }
+        body.light-mode .search-bar { background:#fff; border-color:#ccc; }
+        body.light-mode .search-bar input { color:#0f0f0f; }
+        body.light-mode .search-btn { background:#f8f8f8; border-color:#ccc; color:#0f0f0f; }
+        body.light-mode .btn-sub { background:#0f0f0f; color:#fff; }
+        body.light-mode .action-btn { color:#0f0f0f; }
+        body.light-mode .like-divider { background:rgba(0,0,0,0.15); }
+        body.light-mode .action-btn.ask { color:#0f0f0f; border-color:#ccc; }
+        body.light-mode .autocomplete-dropdown { background:#fff; border-color:#e0e0e0; }
+        body.light-mode .autocomplete-item { color:#0f0f0f; }
+        body.light-mode .autocomplete-item:hover { background:#f2f2f2; }
+        body.light-mode .mix-card { background:#f9f9f9; border-color:#e0e0e0; }
+        body.light-mode .mix-header { border-color:#e0e0e0; }
+        body.light-mode .mix-item.playing { background:rgba(0,0,0,0.06); }
+        body.light-mode .server-menu, body.light-mode .quality-menu { background:#fff; border-color:#e0e0e0; }
+        body.light-mode .server-option.active, body.light-mode .quality-option.active { background:#eee; }
+        body.light-mode .yt-modal { background:#fff; color:#0f0f0f; }
+        body.light-mode .yt-modal-head, body.light-mode .yt-setting-row + .yt-setting-row { border-color:#e0e0e0; }
+        body.light-mode .compact-mix.pending .compact-mix-inner { background:#f2f2f2; border-color:#e0e0e0; }
+        body.light-mode .cmix-stack::before { background:#d0d0d0; }
+        body.light-mode .cmix-stack::after { background:#c0c0c0; }
         * { box-sizing:border-box; }
         body { margin:0; padding:0; background:var(--bg-main); color:var(--text-main); font-family:"Roboto","Arial",sans-serif; overflow-x:hidden; }
         a { color:inherit; }
         .navbar { position:fixed; top:0; width:100%; height:56px; background:var(--bg-main); display:flex; align-items:center; justify-content:space-between; padding:0 16px; box-sizing:border-box; z-index:1000; }
         .nav-left { display:flex; align-items:center; gap:16px; }
-        .logo { display:flex; align-items:center; color:white; text-decoration:none; font-weight:bold; font-size:20px; letter-spacing:-1px; }
-        .logo i { color:var(--yt-red); font-size:28px; margin-right:4px; }
+        .logo { display:flex; align-items:center; color:var(--text-main); text-decoration:none; font-weight:700; font-size:20px; letter-spacing:-.5px; gap:2px; }
+        .logo i { color:var(--yt-red); font-size:26px; margin-right:3px; }
+        .logo .logo-txt { font-weight:700; }
+        .logo .logo-ai { font-size:12px; font-weight:800; letter-spacing:.5px; color:#fff; background:linear-gradient(135deg,#4f8bff,#a26bff,#ff6bd6); padding:2px 6px; border-radius:6px; margin-left:2px; margin-top:-6px; }
         .nav-right-cluster { display:flex; align-items:center; gap:8px; }
         .nav-icon-btn { background:none; border:none; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s; padding:0; }
         .nav-icon-btn:hover { background:var(--bg-secondary); }
@@ -1226,8 +1258,14 @@ const shortsHtml = `
         .mix-head-actions { display:flex; flex-direction:column; gap:2px; margin-left:auto; }
         .mix-close, .mix-more { background:none; border:none; color:var(--text-main); font-size:14px; cursor:pointer; width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
         .mix-close:hover, .mix-more:hover { background:rgba(255,255,255,0.1); }
-        .mix-body { padding:6px; max-height:420px; overflow-y:auto; }
+        .mix-body { padding:6px; max-height:420px; overflow-y:auto; transition:max-height .28s ease, padding .28s ease, opacity .2s ease; }
         .mix-body::-webkit-scrollbar { width:6px; } .mix-body::-webkit-scrollbar-thumb { background:#5a5a5a; border-radius:3px; }
+        /* 折りたたみ状態 */
+        .mix-card.collapsed .mix-body { max-height:0; padding-top:0; padding-bottom:0; opacity:0; overflow:hidden; }
+        .mix-toggle { background:none; border:none; color:var(--text-main); cursor:pointer; width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:background .15s, transform .25s ease; }
+        .mix-toggle:hover { background:rgba(255,255,255,0.1); }
+        body.light-mode .mix-toggle:hover { background:rgba(0,0,0,0.06); }
+        .mix-card.collapsed .mix-toggle { transform:rotate(180deg); }
         .mix-item { display:flex; gap:8px; padding:6px 8px; border-radius:8px; text-decoration:none; color:inherit; align-items:center; transition:background .15s; position:relative; }
         .mix-item:hover { background:var(--bg-hover); }
         .mix-item.playing { background:rgba(255,255,255,0.08); }
@@ -1346,8 +1384,9 @@ const shortsHtml = `
     </style>
 </head>
 <body>
+<script>try{if(localStorage.getItem('theme')==='light')document.body.classList.add('light-mode');}catch(e){}</script>
 <nav class="navbar">
-    <div class="nav-left"><a href="/" class="logo"><i class="fab fa-youtube"></i>YouTube</a></div>
+    <div class="nav-left"><a href="/" class="logo"><i class="fab fa-youtube"></i><span class="logo-txt">YouTube</span><span class="logo-ai">AI</span></a></div>
     <div class="nav-center">
         <form class="search-bar" onsubmit="event.preventDefault(); const q=this.querySelector('input').value.trim(); if(q) location.href='/?q='+encodeURIComponent(q);">
             <input type="text" id="searchInput" placeholder="検索" autocomplete="off">
@@ -1359,7 +1398,6 @@ const shortsHtml = `
         <button class="nav-icon-btn" title="設定" onclick="openSettings()" aria-label="設定">
             <svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
         </button>
-        <a href="/" class="nav-avatar" title="ホーム">C</a>
     </div>
 </nav>
 
@@ -1481,8 +1519,25 @@ const shortsHtml = `
     /* ===== 設定 (localStorage) ===== */
     const SETTINGS = {
       get autoNext(){ return localStorage.getItem('setting_autonext') === 'true'; },
-      set autoNext(v){ localStorage.setItem('setting_autonext', v ? 'true':'false'); }
+      set autoNext(v){ localStorage.setItem('setting_autonext', v ? 'true':'false'); },
+      // AI機能マスタースイッチ（プライバシー重視ユーザー向け・ホームと共有）。既定はON。
+      get aiEnabled(){ return localStorage.getItem('setting_ai_enabled') !== 'false'; },
+      set aiEnabled(v){ localStorage.setItem('setting_ai_enabled', v ? 'true':'false'); }
     };
+    // AI機能が有効か（このページ全体で参照）
+    function aiEnabled(){ return SETTINGS.aiEnabled; }
+
+    /* ===== テーマ（ダーク/ライト・全ページ共通の localStorage 'theme' を使用） ===== */
+    function applyWatchTheme(){
+      const light = localStorage.getItem('theme') === 'light';
+      document.body.classList.toggle('light-mode', light);
+    }
+    function setWatchTheme(light){
+      localStorage.setItem('theme', light ? 'light' : 'dark');
+      applyWatchTheme();
+    }
+    // 初期テーマを即時適用（onload を待たずにチラつき防止）
+    try{ if(localStorage.getItem('theme')==='light') document.documentElement.dataset.pendingLight='1'; }catch(e){}
 
     /* ===== 音声同期プレイヤー状態 ===== */
     let QUALITY_DATA = null;      // /api/qualities のレスポンス
@@ -1526,8 +1581,52 @@ const shortsHtml = `
     }
     updateSubBtnUI();
 
-    let liked=false;
-    function toggleLike(){ liked=!liked; document.getElementById('likeBtn').style.color = liked ? '#3ea6ff' : ''; }
+    /* ===== 高評価（永続化・トグル動作） =====
+     * 旧実装は色を変えるだけで、再読込で消え、件数も動かなかった。
+     * localStorage に「高評価した動画ID」を保存し、件数表示にも +1 を反映する。
+     * ホーム画面の「高評価した動画」ライブラリ(liked_videos)とも連携する。 */
+    const LIKE_KEY = 'liked_videos';
+    function getLikedList(){ try{ return JSON.parse(localStorage.getItem(LIKE_KEY)||'[]'); }catch(e){ return []; } }
+    function setLikedList(a){ try{ localStorage.setItem(LIKE_KEY, JSON.stringify(a)); }catch(e){} }
+    let liked = getLikedList().some(x => (x && (x.id===VIDEO_ID)) || x===VIDEO_ID);
+
+    function formatLikeCount(n){
+      n = Number(n)||0;
+      if(n >= 1e8) return (n/1e8).toFixed(1).replace(/\\.0$/,'') + '億';
+      if(n >= 1e4) return (n/1e4).toFixed(1).replace(/\\.0$/,'') + '万';
+      if(n >= 1e3) return (n/1e3).toFixed(1).replace(/\\.0$/,'') + '千';
+      return String(n);
+    }
+    // サーバーから来た「高評価の生件数」を数値としてそのまま注入（"12万"等の表示テキストではなく実数）
+    const BASE_LIKES = ${JSON.stringify(Number(videoData.likeCount) || 0)};
+
+    function renderLikeUI(){
+      const btn=document.getElementById('likeBtn');
+      const txt=document.getElementById('likeTxt');
+      if(!btn) return;
+      btn.classList.toggle('liked', liked);
+      btn.style.color = liked ? '#3ea6ff' : '';
+      const icon = btn.querySelector('i');
+      if(icon){ icon.className = liked ? 'fas fa-thumbs-up' : 'far fa-thumbs-up'; }
+      if(txt){
+        const shown = BASE_LIKES>0 ? formatLikeCount(BASE_LIKES + (liked?1:0)) : (liked ? '高評価済み' : '高評価');
+        txt.textContent = shown;
+      }
+    }
+    function toggleLike(){
+      let list = getLikedList();
+      if(liked){
+        list = list.filter(x => !((x && x.id===VIDEO_ID) || x===VIDEO_ID));
+        liked = false;
+      } else {
+        list.unshift({ id:VIDEO_ID, title:VIDEO_TITLE, channel:VIDEO_CH, thumbnail:'https://i.ytimg.com/vi/'+VIDEO_ID+'/mqdefault.jpg', ts:Date.now() });
+        list = list.slice(0, 500);
+        liked = true;
+      }
+      setLikedList(list);
+      renderLikeUI();
+    }
+    renderLikeUI();
 
     /* =================================================================
      *  プレイヤー生成 (サーバー切替 / 画質切替)
@@ -1536,18 +1635,33 @@ const shortsHtml = `
       return \`<iframe id="mainIframe" src="\${url}" frameborder="0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen style="width:100%;height:100%;position:relative;z-index:10;"></iframe>\`;
     }
 
-    // googlevideo: 映像+音声を同期再生する <video>（+ 高画質時は隠し <audio>=別トラック mp3/m4a）
-    // 高画質(itag>18)の映像には音声が無いため、別途取得した音声トラックを厳密に同期させる。
+    // googlevideo: 映像+音声を同期再生する <video>
     let syncRafId = null;                 // 同期ループ (requestAnimationFrame)
     let savedVolume = 1;                  // ユーザー音量を保持
     let audioOnlyMode = false;            // 音声のみモードか
     let restrictHandled = false;          // 制限フォールバックを既に発火したか
     let playWatchdog = null;              // 再生開始ウォッチドッグ
     let currentServerName = 'googlevideo';
+    let syncAudioBlobUrl = null;          // clipto等で生成した mp3 の Blob URL（後で解放）
 
-    function mountSyncedPlayer(videoUrl, audioUrl){
+    /* =====================================================================
+     *  【新手法】360p 音源同期エンジン
+     *  ---------------------------------------------------------------------
+     *  これまでのアプローチ（別途取得した音声トラックURLを <audio> に流す）は、
+     *  bestAudioUrl の失効・CORS・itag非対応などで「360P以外だと無音」になる
+     *  問題が残っていた。そこで全く別の手法に切り替える:
+     *
+     *   ● 高画質(音声なし)の映像を前面の <video> で再生（映像はミュート）。
+     *   ● その「裏」に、音声つき360pストリーム(itag18等)を **音量MAX** で
+     *     再生する隠し <video>（=音源）を置き、両者を厳密に同期させる。
+     *     360p muxed は最も確実に音声を含み、あらゆる端末でデコードできる。
+     *   ● 360pすら取れない/googlevideo未対応の曲は、clipto の mp3 を
+     *     HTML側で Blob 化して <audio> に流す（参考コードの正しい使い方）。
+     *     clipto がユーザー端末でブロックされている場合も想定し、
+     *     サーバープロキシ→Orby音源へ自動フォールバックする。
+     * ===================================================================== */
+    function mountSyncedPlayer(videoUrl, audioSourceUrl){
       const wrap = document.getElementById('playerWrapper');
-      // 直前の同期ループ / 音声要素を確実に破棄
       teardownPlayers();
 
       wrap.innerHTML = \`
@@ -1555,12 +1669,10 @@ const shortsHtml = `
           <source src="\${videoUrl}" type="video/mp4">
         </video>\`;
       mainVideoEl = document.getElementById('mainPlayer');
-
-      // 映像そのものの再生失敗（403/デコード不可/空）→ 音楽なら音声のみへ
       attachVideoFailureDetection(mainVideoEl);
 
-      if(!audioUrl){
-        // 音声込み(360p/itag18等) → そのまま再生
+      if(!audioSourceUrl){
+        // 音声込み(360p/itag18等) → そのまま再生（同期不要）
         mainVideoEl.muted = false;
         mainVideoEl.volume = savedVolume;
         attachEndedHandler(mainVideoEl);
@@ -1568,35 +1680,38 @@ const shortsHtml = `
         return;
       }
 
-      /* ===== 別音声トラックを映像と厳密に同期 =====
-       * 【修正】以前は 360P 以外で「音が出ない」問題があった:
-       *   - a.play() が自動再生ポリシーで拒否されても再試行しなかった
-       *   - 映像/音声の waiting でお互いを止め合いデッドロック → 音声が止まったまま
-       *   - bestAudioUrl が期限切れ/空でも保険が無かった
-       * ここを全面的に堅牢化する。 */
       const v = mainVideoEl;
-      const a = document.createElement('audio');
-      a.src = audioUrl;
+
+      /* ===== 裏で鳴らす音源要素 =====
+       * 音源が .mp3/.m4a（clipto等の音声ファイル）なら <audio>、
+       * それ以外（360p動画ストリーム）なら 非表示 <video> を使う。
+       * どちらも映像は見せず「音だけ」を最大音量で鳴らす。 */
+      const isPlainAudio = /\\.(mp3|m4a|webm|opus)(\\?|$)/i.test(audioSourceUrl) || audioSourceUrl.indexOf('/audio-stream/')!==-1 || audioSourceUrl.indexOf('blob:')===0;
+      const a = document.createElement(isPlainAudio ? 'audio' : 'video');
+      a.src = audioSourceUrl;
       a.preload = 'auto';
-      a.crossOrigin = 'anonymous';
-      a.style.display = 'none';
+      try{ a.crossOrigin = 'anonymous'; }catch(e){}
+      if(a.tagName==='VIDEO'){ a.playsInline = true; a.muted = false; }
+      // 音源は画面外に隠す（音だけ利用）
+      a.style.position='fixed'; a.style.left='-99999px'; a.style.width='1px'; a.style.height='1px'; a.style.opacity='0'; a.style.pointerEvents='none';
       document.body.appendChild(a);
       syncAudioEl = a;
 
-      v.muted = true;              // 実音声は audio トラックから
-      a.volume = savedVolume;
+      v.muted = true;              // 前面映像は無音。音は裏の音源から。
+      a.volume = savedVolume;      // 音源は音量MAX（=ユーザー音量）で鳴らす
 
       let audioReady = false;
-      let userWantsPlay = true;    // 既定で再生を望む（autoplay）
+      let userWantsPlay = true;
       let audioFailed = false;
+      let proxyTried = false;
+      let cliptoTried = false;
 
       const hardSync = ()=>{ try{ a.currentTime = v.currentTime; }catch(e){} };
-      const tryPlayAudio = ()=>{ if(!audioFailed){ a.play().catch(()=>{}); } };
+      const tryPlayAudio = ()=>{ if(!audioFailed){ const p=a.play(); if(p&&p.catch) p.catch(()=>{}); } };
 
       const loop = ()=>{
         if(!syncAudioEl){ return; }
         if(!v.paused && audioReady && !audioFailed){
-          // 映像が動いているのに音声が止まっていたら再開（デッドロック解消）
           if(a.paused) tryPlayAudio();
           const drift = a.currentTime - v.currentTime;
           if(Math.abs(drift) > 0.35){ hardSync(); a.playbackRate = 1; }
@@ -1606,31 +1721,35 @@ const shortsHtml = `
         syncRafId = requestAnimationFrame(loop);
       };
 
-      // 音声トラックが一定時間で読めない/失敗 → プロキシ音声に差し替え、それも無理なら映像の内蔵音を使う
-      let audioLoadTimer = setTimeout(()=>{
-        if(!audioReady && !audioFailed){ swapAudioToProxy(); }
-      }, 6000);
+      // 音源が一定時間で読めない → 段階的フォールバック
+      let audioLoadTimer = setTimeout(()=>{ if(!audioReady && !audioFailed){ escalate(); } }, 6000);
 
-      function swapAudioToProxy(){
-        // /audio-stream に切替（clipto→Orby フォールバック済みの安定音源）
-        try{
-          const proxied = '/audio-stream/' + VIDEO_ID;
-          if(a.src.indexOf('/audio-stream/') === -1){
-            a.src = proxied;
-            a.load();
-            tryPlayAudio();
-            return;
-          }
-        }catch(e){}
-        // プロキシもダメ → 最後の手段: 映像の内蔵音声を鳴らす（無音回避を最優先）
+      // フォールバック順: (現在の音源) → clipto Blob → サーバープロキシ → 前面映像の内蔵音
+      async function escalate(){
+        // 1) clipto の mp3 を Blob 化して差し替え（googlevideo未対応曲の切り札）
+        if(!cliptoTried){
+          cliptoTried = true;
+          const blob = await fetchCliptoBlob(VIDEO_ID);
+          if(blob){ setAudioSrc(blob); return; }
+        }
+        // 2) サーバープロキシ(/audio-stream) …clipto→Orby を裏で解決
+        if(!proxyTried){
+          proxyTried = true;
+          setAudioSrc('/audio-stream/' + VIDEO_ID);
+          return;
+        }
+        // 3) 最後の手段: 前面映像の内蔵音を鳴らす（無音だけは絶対に避ける）
         audioFailed = true;
         try{ v.muted = false; v.volume = savedVolume; }catch(e){}
       }
+      function setAudioSrc(src){
+        try{ a.src = src; a.load(); audioReady=false; clearTimeout(audioLoadTimer); audioLoadTimer=setTimeout(()=>{ if(!audioReady && !audioFailed) escalate(); }, 6000); tryPlayAudio(); }catch(e){ escalate(); }
+      }
 
       a.addEventListener('loadedmetadata', ()=>{ audioReady = true; clearTimeout(audioLoadTimer); hardSync(); tryPlayAudio(); });
-      a.addEventListener('canplay', ()=>{ audioReady = true; clearTimeout(audioLoadTimer); if(v._pausedForAudio){ v._pausedForAudio=false; if(userWantsPlay) v.play().catch(()=>{}); } if(!v.paused) tryPlayAudio(); });
+      a.addEventListener('canplay', ()=>{ audioReady = true; clearTimeout(audioLoadTimer); if(!v.paused) tryPlayAudio(); });
       a.addEventListener('canplaythrough', ()=>{ audioReady = true; clearTimeout(audioLoadTimer); });
-      a.addEventListener('error', ()=>{ clearTimeout(audioLoadTimer); if(!audioFailed) swapAudioToProxy(); });
+      a.addEventListener('error', ()=>{ clearTimeout(audioLoadTimer); if(!audioFailed) escalate(); });
 
       v.addEventListener('play', ()=>{ userWantsPlay=true; hardSync(); tryPlayAudio(); });
       v.addEventListener('pause', ()=>{ userWantsPlay=false; a.pause(); });
@@ -1641,7 +1760,6 @@ const shortsHtml = `
         savedVolume = v.muted ? 0 : (v.volume||1);
         if(!audioFailed){ a.volume = v.muted ? 0 : v.volume; if(!v.muted) v.muted = true; }
       });
-      // 映像がバッファ待ちのときだけ音声を止める（audio側waitingでは映像を止めない＝片方待ちの膠着を防止）
       v.addEventListener('waiting', ()=>{ if(!audioFailed) a.pause(); });
 
       attachEndedHandler(v);
@@ -1649,10 +1767,34 @@ const shortsHtml = `
       v.play && v.play().catch(()=>{});
     }
 
+    /* =====================================================================
+     *  clipto → mp3 Blob 生成（参考コードの正しい使い方）
+     *  ---------------------------------------------------------------------
+     *  ・まずサーバープロキシ(/api/clipto-mp3)経由でバイナリを取得し Blob 化。
+     *    （clipto を直叩きすると CORS で失敗するため、サーバー経由が正解）
+     *  ・ユーザー端末で clipto がブロック/失敗していても、サーバー側で
+     *    Orby 音源に自動フォールバックするので必ず何か鳴る。
+     *  ・取得できた ArrayBuffer を Blob(audio/mpeg) にして blob: URL を返す。
+     *    これを <audio>/<video>.src に入れれば googlevideo 未対応曲も再生可能。
+     * ===================================================================== */
+    async function fetchCliptoBlob(videoId){
+      try{
+        const res = await fetch('/api/clipto-mp3/' + videoId, { cache:'no-store' });
+        if(!res.ok) return null;
+        const buf = await res.arrayBuffer();
+        if(!buf || buf.byteLength < 1024) return null; // 実データが無ければ失敗扱い
+        const blob = new Blob([buf], { type: 'audio/mpeg' });
+        if(syncAudioBlobUrl){ try{ URL.revokeObjectURL(syncAudioBlobUrl); }catch(e){} }
+        syncAudioBlobUrl = URL.createObjectURL(blob);
+        return syncAudioBlobUrl;
+      }catch(e){ return null; }
+    }
+
     function teardownPlayers(){
       if(syncRafId){ cancelAnimationFrame(syncRafId); syncRafId=null; }
       if(playWatchdog){ clearTimeout(playWatchdog); playWatchdog=null; }
-      if(syncAudioEl){ try{ syncAudioEl.pause(); syncAudioEl.src=''; syncAudioEl.remove(); }catch(e){} syncAudioEl=null; }
+      if(syncAudioEl){ try{ syncAudioEl.pause(); syncAudioEl.removeAttribute('src'); syncAudioEl.load&&syncAudioEl.load(); syncAudioEl.remove(); }catch(e){} syncAudioEl=null; }
+      if(syncAudioBlobUrl){ try{ URL.revokeObjectURL(syncAudioBlobUrl); }catch(e){} syncAudioBlobUrl=null; }
     }
 
     /* =================================================================
@@ -1825,9 +1967,11 @@ const shortsHtml = `
       const overlay=document.getElementById('videoLoadingOverlay'); overlay.classList.add('active');
       const wasTime = mainVideoEl ? mainVideoEl.currentTime : 0;
       const wasPaused = mainVideoEl ? mainVideoEl.paused : false;
-      // 音声込みの画質(360p等)はそのまま。それ以外は必ず別音声を同期。
-      // 【修正】bestAudioUrl が空でも無音にならないよう、自前プロキシ音声にフォールバック。
-      const audioUrl = v.hasAudio ? '' : (QUALITY_DATA.bestAudioUrl || ('/audio-stream/' + VIDEO_ID));
+      /* 【新手法】音声込みの画質(360p等)はそのまま。
+       * それ以外(高画質=音声なし)は「音声つき360pストリーム」を裏で音量MAX同期再生する。
+       * 360pストリームが取れない場合は clipto→プロキシ音源へ自動フォールバック。 */
+      const audioUrl = v.hasAudio ? ''
+        : (QUALITY_DATA.muxed360Url || QUALITY_DATA.bestAudioUrl || ('/audio-stream/' + VIDEO_ID));
       mountSyncedPlayer(v.url, audioUrl);
       if(mainVideoEl){
         mainVideoEl.addEventListener('loadedmetadata', ()=>{
@@ -1990,6 +2134,25 @@ const shortsHtml = `
 
     async function initMixOrDetect(){
       clearBottomSlot();
+      // AI機能オフなら、AIによるMix生成・提案は一切行わない（プライバシー重視）。
+      // ただし、ユーザーが既に開始した再生中プレイリストの継続だけは尊重する。
+      if(!aiEnabled()){
+        const savedPl0=sessionStorage.getItem('mix_playlist');
+        if(savedPl0){
+          try{
+            const pl=JSON.parse(savedPl0);
+            let idx=pl.findIndex(x=>x.id===VIDEO_ID);
+            const savedIdx0=sessionStorage.getItem('mix_index');
+            if(idx>=0 || (savedIdx0!=null && pl[parseInt(savedIdx0)] && pl[parseInt(savedIdx0)].id===VIDEO_ID)){
+              if(idx<0) idx=parseInt(savedIdx0)||0;
+              MIX_STATE={playlist:pl,index:idx,label:sessionStorage.getItem('mix_label')||''};
+              renderMixPlaying();
+            }
+          }catch(e){}
+        }
+        if(mixSlot()) mixSlot().innerHTML = MIX_STATE ? mixSlot().innerHTML : '';
+        return;
+      }
       // 1) 既に Mix 再生中（前ページから引き継ぎ）なら再生モードで表示
       const savedPl=sessionStorage.getItem('mix_playlist');
       const savedIdx=sessionStorage.getItem('mix_index');
@@ -2037,6 +2200,7 @@ const shortsHtml = `
     /* ===== 関連の一番下: 目立たない「+ プレイリスト」ボタン（Gemini生成） ===== */
     const geminiPlSvg = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 2l2.35 6.35L21 10.7l-5.5 3.9L17 21l-5-3.6L7 21l1.5-6.4L3 10.7l6.65-2.35z" fill="currentColor"/></svg>';
     function renderAddPlaylistBtn(){
+      if(!aiEnabled()) return; // AIオフ時は「+プレイリスト」(Gemini生成)を出さない
       const s=document.getElementById('addPlaylistSlot'); if(!s) return;
       s.innerHTML=\`<button class="add-pl-btn" id="addPlBtn"><span class="spark">✨</span> ＋プレイリスト</button>\`;
       const btn=document.getElementById('addPlBtn');
@@ -2093,6 +2257,7 @@ const shortsHtml = `
         sessionStorage.setItem('mix_playlist', JSON.stringify(pl));
         sessionStorage.setItem('mix_index','0');
         sessionStorage.setItem('mix_label', label);
+        sessionStorage.removeItem(MIX_COLLAPSE_KEY); // 新規プレイリスト → 折りたたみ設定リセット(自動展開)
         location.href='/video/'+pl[0].id;
       });
     }
@@ -2160,6 +2325,7 @@ const shortsHtml = `
         sessionStorage.setItem('mix_playlist', JSON.stringify(pl));
         sessionStorage.setItem('mix_index','0');
         sessionStorage.setItem('mix_label', p.label);
+        sessionStorage.removeItem(MIX_COLLAPSE_KEY); // 新規プレイリスト → 折りたたみ設定リセット(自動展開)
         clearPendingMix();
         location.href='/video/'+pl[0].id;
       });
@@ -2208,6 +2374,7 @@ const shortsHtml = `
         sessionStorage.setItem('mix_playlist', JSON.stringify(pl));
         sessionStorage.setItem('mix_index','0');
         sessionStorage.setItem('mix_label', MIX_SUGGEST.label);
+        sessionStorage.removeItem(MIX_COLLAPSE_KEY); // 新規プレイリスト → 折りたたみ設定リセット(自動展開)
         MIX_STATE={playlist:pl,index:0,label:MIX_SUGGEST.label};
         renderMixPlaying();
       });
@@ -2215,6 +2382,25 @@ const shortsHtml = `
 
     // 再生中（YouTube本家風・現在位置ハイライト + 再生アイコン）
     // 再生中は「関連動画の上」に表示（本家 YouTube と同じ挙動）。下段スロットは空に。
+    /* ===== 折りたたみ状態の管理 =====
+     * 要件:
+     *  - プレイリストが生成され、その動画が「再生中」なら自動で展開する。
+     *  - ただしユーザーが手動で折りたたんだら、その意思を尊重して折りたたみ表示を維持。
+     *  → 「ユーザーが明示的に操作したか」を sessionStorage に記録し、
+     *     操作履歴が無い＝生成直後 は常に展開、操作済みならその状態を復元する。
+     */
+    const MIX_COLLAPSE_KEY = 'mix_collapsed_pref'; // 'open' | 'collapsed' | null(未操作)
+    function getMixCollapsePref(){ return sessionStorage.getItem(MIX_COLLAPSE_KEY); }
+    function setMixCollapsePref(v){ sessionStorage.setItem(MIX_COLLAPSE_KEY, v); }
+
+    function toggleMixCollapse(e){
+      if(e) e.stopPropagation();
+      const card=document.querySelector('.mix-card'); if(!card) return;
+      const nowCollapsed=card.classList.toggle('collapsed');
+      // ユーザーが手動操作した意思を記録（以後この状態を維持）
+      setMixCollapsePref(nowCollapsed ? 'collapsed' : 'open');
+    }
+
     function renderMixPlaying(){
       const s=mixSlotTop(); if(!s || !MIX_STATE) return;
       clearBottomSlot();
@@ -2225,22 +2411,26 @@ const shortsHtml = `
           <div class="mix-thumb-box"><img class="mix-thumb" src="\${escHtml(it.thumbnail)}" onerror="this.src='https://i.ytimg.com/vi/\${it.id}/mqdefault.jpg'">\${it.lengthText?\`<span class="mix-dur">\${escHtml(it.lengthText)}</span>\`:''}</div>
           <div style="min-width:0;"><div class="mix-it-title">\${escHtml(it.title)}</div><div class="mix-it-ch">\${escHtml(it.channelTitle||'')}</div></div>
         </a>\`).join('');
+      // 再生中は既定で展開。ユーザーが過去に手動で折りたたんでいたらそれを尊重。
+      const pref=getMixCollapsePref();
+      const collapsed = (pref === 'collapsed');
       s.innerHTML=\`
-        <div class="mix-card">
-          <div class="mix-header">
+        <div class="mix-card\${collapsed?' collapsed':''}">
+          <div class="mix-header" onclick="toggleMixCollapse(event)" style="cursor:pointer;">
             <svg class="mix-icon" viewBox="0 0 24 24" fill="var(--text-main)"><path d="M4 6h12v2H4zm0 4h12v2H4zm0 4h8v2H4zm10 0l6-3-6-3z"/></svg>
             <div style="flex:1;min-width:0;">
               <div class="mix-title-txt">\${escHtml(label||('Mix - '+VIDEO_CH))}</div>
-              <div class="mix-sub-txt">YouTubeがあなたに作成したMix ・ \${index+1} / \${playlist.length}</div>
+              <div class="mix-sub-txt">YouTubeAIがあなたに作成したMix ・ \${index+1} / \${playlist.length}</div>
             </div>
             <div class="mix-head-actions">
+              <button class="mix-toggle" onclick="toggleMixCollapse(event)" title="折りたたみ/展開"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg></button>
               <button class="mix-close" onclick="closeMix(event)" title="Mixを終了"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
             </div>
           </div>
           <div class="mix-body">\${body}</div>
         </div>\`;
-      // アクティブ項目までスクロール
-      setTimeout(()=>{ const a=s.querySelector('.mix-item.playing'); if(a) a.scrollIntoView({block:'nearest'}); },100);
+      // アクティブ項目までスクロール（展開時のみ）
+      if(!collapsed) setTimeout(()=>{ const a=s.querySelector('.mix-item.playing'); if(a) a.scrollIntoView({block:'nearest'}); },100);
     }
 
     function closeMix(e){
@@ -2339,17 +2529,44 @@ const shortsHtml = `
           <div class="yt-modal-body">
             <div class="yt-setting-row">
               <div>
+                <div class="yt-setting-label">🌙 ライトモード</div>
+                <div class="yt-setting-desc">明るい配色に切り替えます。設定は全ページで共通です。</div>
+              </div>
+              <label class="yt-switch"><input type="checkbox" id="setLightTheme" \${localStorage.getItem('theme')==='light'?'checked':''}><span class="slider"></span></label>
+            </div>
+            <div class="yt-setting-row">
+              <div>
                 <div class="yt-setting-label">自動再生</div>
                 <div class="yt-setting-desc">動画が終了したら、関連動画の一番上の動画を自動的に再生します。</div>
               </div>
               <label class="yt-switch"><input type="checkbox" id="setAutoNext" \${SETTINGS.autoNext?'checked':''}><span class="slider"></span></label>
             </div>
+            <div class="yt-setting-row">
+              <div>
+                <div class="yt-setting-label">✨ AI機能</div>
+                <div class="yt-setting-desc">Mix自動生成・AIプレイリスト・Ask(AI要約)などのAI機能。オフにするとAIへの情報送信を一切行いません（プライバシー重視）。</div>
+              </div>
+              <label class="yt-switch"><input type="checkbox" id="setAiEnabled" \${SETTINGS.aiEnabled?'checked':''}><span class="slider"></span></label>
+            </div>
           </div>
           <div class="yt-modal-foot"><button id="ytModalClose">完了</button></div>
         </div>\`;
       document.body.appendChild(wrap);
+      wrap.querySelector('#setLightTheme').addEventListener('change', e=>{ setWatchTheme(e.target.checked); });
       wrap.querySelector('#setAutoNext').addEventListener('change', e=>{ SETTINGS.autoNext=e.target.checked; });
+      wrap.querySelector('#setAiEnabled').addEventListener('change', e=>{ SETTINGS.aiEnabled=e.target.checked; applyAiEnabledUI(); location.reload(); });
       wrap.querySelector('#ytModalClose').addEventListener('click', ()=> wrap.remove());
+    }
+
+    // AI機能のオン/オフに応じて画面のAI系UIを表示/非表示
+    function applyAiEnabledUI(){
+      const on = aiEnabled();
+      const ask = document.querySelector('.action-btn.ask');
+      if(ask) ask.style.display = on ? '' : 'none';
+      if(!on){
+        const aps=document.getElementById('addPlaylistSlot'); if(aps) aps.innerHTML='';
+        const pgs=document.getElementById('plGenSlot'); if(pgs) pgs.innerHTML='';
+      }
     }
 
     /* =================================================================
@@ -2379,6 +2596,8 @@ const shortsHtml = `
      *  起動
      * ================================================================= */
     window.onload=()=>{
+      applyWatchTheme();        // ダーク/ライトテーマを反映
+      applyAiEnabledUI();       // AI機能のオン/オフをUIに反映
       // 検索から引き継いだアバターがあれば owner に反映
       if(!VIDEO_CHIMG){ const av=cachedAvatar(VIDEO_CHID, VIDEO_CH); if(av){ document.getElementById('ownerAvatar').src=av; } }
       loadRecommendations();
@@ -2538,6 +2757,49 @@ function guessArtist(title, channel) {
   const chClean = channel.replace(/\s*-\s*topic$/i, "").replace(/vevo$/i, "").replace(/official.*$/i, "").trim();
   if (chClean && chClean.length <= 30) return chClean;
   return "";
+}
+
+/* =====================================================================
+ *  【新規】ジャンル判定 — 「アーティスト名が似てるだけで全く違うジャンルの
+ *  動画が混ざる」バグを根絶するためのジャンル指紋 (genre fingerprint)。
+ *
+ *  仕組み:
+ *   - タイトル/チャンネルから、そのコンテンツが属する音楽ジャンル群を
+ *     キーワードで推定し Set を作る（1曲が複数ジャンルに属してよい）。
+ *   - 種(seed)のジャンル指紋と候補のジャンル指紋を比較し、
+ *     「共通ジャンルが1つ以上あるか」でマッチ度を測る。
+ *   - 共通ジャンルが無い候補は、たとえアーティスト名が部分一致しても
+ *     大幅に減点し、上位に来られないようにする（=バグ修正の核心）。
+ * ===================================================================== */
+const GENRE_PATTERNS = {
+  kpop:      /(k-?pop|케이팝|아이돌|bts|blackpink|twice|seventeen|newjeans|le\s?sserafim|aespa|ive\b|straykids|stray\s?kids|nct|exo|itzy|(g)?i-?dle|txt\b|enhypen)/i,
+  jpop:      /(j-?pop|邦楽|yoasobi|ヨアソビ|米津|髭男|ミセス|mrs\.?\s?green|official\s*髭男|あいみょん|back\s?number|king\s?gnu|vaundy|ado\b|優里|藤井風)/i,
+  vocaloid:  /(ボカロ|ボーカロイド|vocaloid|初音ミク|hatsune|miku|鏡音|巡音|utau|歌ってみた|cover\s*song)/i,
+  anime:     /(アニソン|アニメ|anime|opening|ending|\bop\b|\bed\b|主題歌|tvアニメ|劇場版)/i,
+  rock:      /(\brock\b|ロック|バンド|band|メタル|metal|punk|パンク|alternative|オルタナ|ヴィジュアル系|v系)/i,
+  hiphop:    /(hip-?hop|ヒップホップ|\brap\b|ラップ|trap\b|drill\b|mc\b|freestyle|サイファー|cypher|r&b|rnb|ヒップホップ)/i,
+  edm:       /(\bedm\b|house\b|ハウス|techno|テクノ|trance|トランス|dubstep|future\s?bass|electro|エレクトロ|dj\s|remix|リミックス|club\s?mix)/i,
+  classical: /(classical|クラシック|piano|ピアノ|orchestra|オーケストラ|symphony|交響曲|violin|ヴァイオリン|作業用|オルゴール|music\s?box|jazz|ジャズ|lo-?fi|lofi|チル|chill)/i,
+  western:   /(\bpop\b(?!\s*style)|billboard|top\s?40|taylor\s?swift|ariana|dua\s?lipa|the\s?weeknd|ed\s?sheeran|bruno\s?mars|coldplay|maroon\s?5)/i,
+  latin:     /(reggaeton|レゲトン|latin|ラテン|bad\s?bunny|salsa|bachata|cumbia|k-?pop)/i,
+  vtuber:    /(vtuber|ぶいちゅーば|hololive|ホロライブ|nijisanji|にじさんじ|歌枠|カバー曲)/i,
+};
+
+// タイトル+チャンネルからジャンル指紋(Set)を作る
+function genreFingerprint(title, channel) {
+  const text = (String(title || "") + " " + String(channel || "")).toLowerCase();
+  const set = new Set();
+  for (const [g, re] of Object.entries(GENRE_PATTERNS)) {
+    if (re.test(text)) set.add(g);
+  }
+  return set;
+}
+
+// 2つの指紋の共通ジャンル数
+function genreOverlap(a, b) {
+  let n = 0;
+  for (const g of a) if (b.has(g)) n++;
+  return n;
 }
 
 /* =====================================================================
@@ -2777,6 +3039,10 @@ function parseViewNum(t) {
 // 動画/検索用 Mix を構築。返り値: [{id,title,channelTitle,thumbnail}]
 async function buildMusicMix({ seedTitle = "", seedChannel = "", query = "", excludeId = "", limit = 15 }) {
   const artist = guessArtist(seedTitle, seedChannel);
+  // 【修正】種(seed)のジャンル指紋を先に作る。クエリしか無い検索ページでもクエリから作る。
+  const seedGenres = genreFingerprint(seedTitle || query, seedChannel);
+  // 種のジャンル名（存在すれば検索クエリを「同ジャンル」に寄せる）
+  const seedGenreList = [...seedGenres];
   const queries = [];
 
   if (query) {
@@ -2786,8 +3052,14 @@ async function buildMusicMix({ seedTitle = "", seedChannel = "", query = "", exc
     queries.push(`${query} mix`);
   }
   if (artist) {
+    // 【修正】アーティスト名だけで検索すると同名の別ジャンル動画を拾うため、
+    // 判明しているジャンル語を付けて「同ジャンルの同アーティスト」に絞る。
     queries.push(`${artist}`);
-    queries.push(`${artist} songs`);
+    if (seedGenreList.length) {
+      queries.push(`${artist} ${seedGenreList[0]}`);
+    } else {
+      queries.push(`${artist} songs`);
+    }
   }
   if (seedChannel && seedChannel !== artist) queries.push(seedChannel);
   if (!queries.length && seedTitle) queries.push(seedTitle);
@@ -2819,10 +3091,43 @@ async function buildMusicMix({ seedTitle = "", seedChannel = "", query = "", exc
       seen.add(it.id);
 
       const views = parseViewNum(it.viewCountText);
-      // スコア: 先頭クエリ(=アーティスト/クエリ本体)ほど加点 + 再生数 + 同アーティスト一致
+
+      /* ===== 【バグ修正】ジャンル一致を最優先にしたスコアリング =====
+       * 旧実装は「アーティスト名の部分一致」に +2e8 の巨大ボーナスを与えるだけで、
+       * ジャンルを全く見ていなかった。そのため “名前が似ているだけの別ジャンル”
+       * (例: 同名の別アーティスト / 一般名詞と被る名前 / 別ジャンルのカバー) が
+       * 上位に浮上していた。
+       *
+       * 新スコアリングの原則:
+       *   1. 種と共通ジャンルがある候補を圧倒的に優遇（+ジャンル一致ボーナス）。
+       *   2. 種にジャンルが判明しているのに候補と共通ジャンルが「0」の場合は
+       *      大幅減点（名前一致ボーナスを無効化）→ 別ジャンル混入を根絶。
+       *   3. アーティスト名一致は “ジャンルが一致している時だけ” 効かせる。
+       */
+      const candGenres = genreFingerprint(title, ch);
+      const overlap = genreOverlap(seedGenres, candGenres);
+      const artistMatch = artist && (title.toLowerCase().includes(artist.toLowerCase()) || ch.toLowerCase().includes(artist.toLowerCase()));
+
       let score = views;
       score += (uniqQ.length - li) * 5e7; // クエリ順の重み
-      if (artist && (title.toLowerCase().includes(artist.toLowerCase()) || ch.toLowerCase().includes(artist.toLowerCase()))) score += 2e8;
+
+      if (seedGenres.size > 0) {
+        if (overlap > 0) {
+          // 同ジャンル → 大きく加点（共通ジャンルが多いほど強い）
+          score += 3e8 + overlap * 1e8;
+          if (artistMatch) score += 2e8; // 同ジャンル かつ 同アーティスト = 最優先
+        } else {
+          // 種のジャンルが分かっているのに共通ジャンルゼロ = 別ジャンル。
+          // 名前が一致していても “別物” として強力に減点し、上位を絶対に取らせない。
+          score -= 5e8;
+          if (artistMatch) score -= 3e8; // 名前一致による誤浮上を打ち消す
+        }
+      } else {
+        // 種のジャンルが不明（ジャンル語が拾えなかった）場合のみ、
+        // 従来どおり名前一致を弱めのシグナルとして使う。
+        if (artistMatch) score += 1.2e8;
+        if (overlap > 0) score += 6e7;
+      }
 
       scored.push({
         id: it.id,
@@ -2830,13 +3135,21 @@ async function buildMusicMix({ seedTitle = "", seedChannel = "", query = "", exc
         channelTitle: ch,
         thumbnail: it.thumbnail?.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${it.id}/mqdefault.jpg`,
         lengthText: it.length?.simpleText || it.lengthText || "",
-        _score: score
+        _score: score,
+        _overlap: overlap
       });
     }
   }
 
   scored.sort((a, b) => b._score - a._score);
-  return scored.slice(0, limit).map(({ _score, ...x }) => x);
+  // 【修正】種のジャンルが明確なら、共通ジャンルゼロの候補は結果から除外する
+  // （減点で沈めるだけでなく、良い候補が十分あるなら物理的に混ぜない）。
+  let result = scored;
+  if (seedGenres.size > 0) {
+    const sameGenre = scored.filter(x => x._overlap > 0);
+    if (sameGenre.length >= Math.min(6, limit)) result = sameGenre; // 同ジャンルだけで足りるなら別ジャンルを完全排除
+  }
+  return result.slice(0, limit).map(({ _score, _overlap, ...x }) => x);
 }
 
 // 動画ページ Mix (同アーティスト・類似ジャンル)
@@ -3031,6 +3344,56 @@ app.get('/api/audio-source/:videoId', async (req, res) => {
     res.json({ ok: true, stream: `/audio-stream/${req.params.videoId}` });
   } catch (e) {
     res.status(502).json({ ok: false, error: e.message });
+  }
+});
+
+/* =====================================================================
+ *  【新規】clipto mp3 を「まとめて1本のバイナリ」として返す。
+ *  クライアントは fetch → arrayBuffer → Blob(audio/mpeg) → blob:URL で再生する
+ *  （＝参考コードの意図した使い方。ただし CORS 回避のためサーバー経由）。
+ *
+ *  ポイント:
+ *   - clipto を最優先で解決。ユーザー端末で clipto がブロックされていても、
+ *     解決/取得はサーバー側で行うため影響を受けない。
+ *   - clipto が取れなければ Orby 音源へ自動フォールバック（必ず音を返す）。
+ *   - Range は付けず全体を返す（Blob 化前提なので分割不要・シークは blob 側で可能）。
+ * ===================================================================== */
+app.get('/api/clipto-mp3/:videoId', async (req, res) => {
+  const videoId = req.params.videoId;
+  try {
+    let src = "";
+    try { src = await cliptoResolveMp3(videoId); } catch (e) {}
+    if (!src) {
+      // clipto 不可 → Orby 音源にフォールバック
+      try {
+        const streams = await orbyGetAllStreams(videoId);
+        src = streams.bestAudioUrl || (streams.audioStreams && streams.audioStreams[0] && streams.audioStreams[0].url) || "";
+      } catch (e) {}
+    }
+    if (!src) { res.status(404).send("no audio"); return; }
+
+    const upstreamHeaders = { "User-Agent": CLIPTO_HEADERS["User-Agent"] };
+    if (/clipto\.com/i.test(src)) upstreamHeaders["Referer"] = "https://www.clipto.com/";
+
+    let upstream = await fetch(src, { headers: upstreamHeaders, redirect: "follow" });
+    if (!upstream.ok) {
+      // 取得失敗 → Orby 音源で最後の再試行
+      try {
+        const streams = await orbyGetAllStreams(videoId);
+        const alt = streams.bestAudioUrl || (streams.audioStreams && streams.audioStreams[0] && streams.audioStreams[0].url) || "";
+        if (alt && alt !== src) upstream = await fetch(alt, { headers: { "User-Agent": CLIPTO_HEADERS["User-Agent"] }, redirect: "follow" });
+      } catch (e) {}
+    }
+    if (!upstream.ok) { res.status(502).send("audio upstream failed"); return; }
+
+    const ct = upstream.headers.get("content-type") || "audio/mpeg";
+    res.setHeader("Content-Type", /audio|mpeg|mp4|webm/i.test(ct) ? ct : "audio/mpeg");
+    res.setHeader("Cache-Control", "public, max-age=1800");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.end(buf);
+  } catch (e) {
+    res.status(502).send("clipto proxy error");
   }
 });
 
@@ -3744,7 +4107,7 @@ app.get("/channel/:channelName", (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${channelName.replace(/</g,'&lt;')} - MIN-Tube-Pro</title>
+  <title>${channelName.replace(/</g,'&lt;')} - YouTubeAI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
@@ -3768,7 +4131,7 @@ app.get("/channel/:channelName", (req, res) => {
     .nav-logo-icon { background:var(--red); border-radius:6px; width:34px; height:24px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .nav-logo-icon svg { width:16px; height:16px; fill:white; }
     .nav-logo-text { font-size:18px; font-weight:700; letter-spacing:-0.5px; margin-left:4px; }
-    .nav-logo-sub { font-size:10px; color:var(--text-sub); font-weight:500; margin-left:1px; align-self:flex-end; margin-bottom:4px; }
+    .nav-logo-sub { font-size:11px; font-weight:800; letter-spacing:.5px; color:#fff; background:linear-gradient(135deg,#4f8bff,#a26bff,#ff6bd6); padding:2px 6px; border-radius:6px; margin-left:3px; align-self:flex-start; margin-top:-2px; }
     .nav-center { flex:1; display:flex; align-items:center; justify-content:center; max-width:640px; margin:0 auto; }
     .search-form { display:flex; width:100%; height:40px; border:1px solid var(--border); border-radius:20px; overflow:hidden; }
     .search-form:focus-within { border-color:#3ea6ff; }
@@ -3905,7 +4268,7 @@ app.get("/channel/:channelName", (req, res) => {
     <button class="icon-btn" onclick="history.back()" aria-label="戻る"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
     <a href="/" class="nav-logo">
       <div class="nav-logo-icon"><svg viewBox="0 0 68 48"><path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55c-2.93.78-4.63 3.26-5.42 6.19C.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="#FF0000"/><path d="M45 24 27 14v20" fill="white"/></svg></div>
-      <span class="nav-logo-text">YouTube</span><span class="nav-logo-sub">Pro</span>
+      <span class="nav-logo-text">YouTube</span><span class="nav-logo-sub">AI</span>
     </a>
   </div>
   <div class="nav-center">
