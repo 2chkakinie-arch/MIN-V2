@@ -3035,7 +3035,7 @@ app.get('/api/audio-source/:videoId', async (req, res) => {
 });
 
 // 実際の音声バイトをプロキシ（Range 対応 → <audio> でシーク可能）
-app.get('/audio-stream/:videoId', async (req, res) => {
+app.get('/test-audio-stream/:videoId', async (req, res) => {
   try {
     const src = await resolveAudioUrl(req.params.videoId);
     if (!src) { res.status(404).send("no audio"); return; }
