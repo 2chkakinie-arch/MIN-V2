@@ -199,6 +199,51 @@
     .icon-btn:hover { background: rgba(255,255,255,0.1); }
     body.light-mode .icon-btn:hover { background: rgba(0,0,0,0.06); }
 
+    /* ===== アカウント（Supabase auth）===== */
+    .account-btn { background:none; border:none; cursor:pointer; width:36px; height:36px; border-radius:50%; padding:0; display:flex; align-items:center; justify-content:center; position:relative; }
+    .account-avatar-guest { width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.12); color:var(--text); display:flex; align-items:center; justify-content:center; }
+    body.light-mode .account-avatar-guest { background:rgba(0,0,0,0.08); }
+    .account-avatar-user { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#4f8bff,#a26bff,#ff6bd6); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; }
+    .account-menu { position:absolute; top:calc(100% + 8px); right:12px; width:290px; background:var(--bg-elev,#212121); border:1px solid var(--border,#303030); border-radius:14px; box-shadow:0 8px 40px rgba(0,0,0,0.5); z-index:4000; overflow:hidden; display:none; }
+    .account-menu.open { display:block; }
+    .am-head { padding:18px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--border,#303030); }
+    .am-head .am-av { width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,#4f8bff,#a26bff,#ff6bd6); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0; }
+    .am-head .am-guest-av { width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex-shrink:0; }
+    .am-head .am-name { font-size:15px; font-weight:600; word-break:break-all; }
+    .am-head .am-status { font-size:12px; color:var(--text-muted); margin-top:2px; }
+    .am-item { display:flex; align-items:center; gap:12px; padding:12px 16px; cursor:pointer; font-size:14px; color:var(--text); transition:background .1s; border:none; background:none; width:100%; text-align:left; }
+    .am-item:hover { background:rgba(255,255,255,0.06); }
+    body.light-mode .am-item:hover { background:rgba(0,0,0,0.05); }
+    .am-item svg { width:20px; height:20px; fill:currentColor; opacity:.8; }
+    .am-cta { margin:12px 16px; padding:11px; border-radius:10px; border:none; cursor:pointer; font-size:14px; font-weight:700; width:calc(100% - 32px); background:linear-gradient(135deg,#4f8bff,#a26bff); color:#fff; }
+
+    /* Auth modal */
+    .auth-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.72); backdrop-filter:blur(4px); z-index:9000; display:none; align-items:center; justify-content:center; padding:20px; }
+    .auth-overlay.open { display:flex; }
+    .auth-card { width:100%; max-width:420px; background:var(--bg-elev,#1c1c1c); border:1px solid var(--border,#303030); border-radius:20px; padding:30px 28px; box-shadow:0 20px 70px rgba(0,0,0,0.6); animation:authpop .3s cubic-bezier(.2,.9,.2,1); }
+    @keyframes authpop { from{opacity:0;transform:translateY(16px) scale(.97);} to{opacity:1;transform:none;} }
+    .auth-logo { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:6px; }
+    .auth-logo svg { width:34px; height:24px; }
+    .auth-logo .lg-txt { font-size:20px; font-weight:700; letter-spacing:-.5px; }
+    .auth-logo .lg-pro { font-size:11px; font-weight:700; color:#fff; background:linear-gradient(135deg,#4f8bff,#a26bff); padding:2px 6px; border-radius:6px; }
+    .auth-title { font-size:22px; font-weight:700; text-align:center; margin:14px 0 4px; }
+    .auth-sub { font-size:13px; color:var(--text-muted); text-align:center; margin-bottom:22px; }
+    .auth-field { margin-bottom:14px; }
+    .auth-field label { display:block; font-size:12.5px; color:var(--text-muted); margin-bottom:6px; font-weight:600; }
+    .auth-field input { width:100%; box-sizing:border-box; background:var(--bg,#0f0f0f); border:1.5px solid var(--border,#303030); border-radius:10px; padding:12px 14px; color:var(--text); font-size:15px; outline:none; transition:border .15s; }
+    .auth-field input:focus { border-color:#4f8bff; }
+    .auth-btn { width:100%; padding:13px; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; background:linear-gradient(135deg,#4f8bff,#a26bff); color:#fff; transition:opacity .15s; }
+    .auth-btn:disabled { opacity:.6; cursor:default; }
+    .auth-btn.ghost { background:transparent; border:1.5px solid var(--border,#303030); color:var(--text); margin-top:10px; }
+    .auth-switch { text-align:center; font-size:13.5px; color:var(--text-muted); margin-top:18px; }
+    .auth-switch a { color:#4f8bff; cursor:pointer; font-weight:600; text-decoration:none; }
+    .auth-msg { font-size:13px; border-radius:9px; padding:10px 12px; margin-bottom:14px; display:none; }
+    .auth-msg.err { display:block; background:rgba(255,80,80,0.12); color:#ff8080; border:1px solid rgba(255,80,80,0.3); }
+    .auth-msg.ok { display:block; background:rgba(80,220,150,0.12); color:#5fe0a0; border:1px solid rgba(80,220,150,0.3); }
+    .auth-guest { text-align:center; margin-top:16px; }
+    .auth-guest a { color:var(--text-muted); font-size:13px; cursor:pointer; text-decoration:underline; }
+    .auth-spin { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,0.35); border-top-color:#fff; border-radius:50%; animation:spin .8s linear infinite; vertical-align:middle; margin-right:6px; }
+
     /* Settings panel */
     .settings-wrapper { position: relative; }
     .settings-panel {
@@ -1266,6 +1311,18 @@
 
       <div id="appVersion" class="version-badge"><span class="version-badge-text"></span></div>
 
+      <!-- プレイリスト（生成された全プレイリストを表示） -->
+      <button class="icon-btn" id="playlistNavBtn" title="プレイリスト" aria-label="プレイリスト" onclick="openDrawer('playlists')">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3 10h11v2H3v-2zm0-4h11v2H3V6zm0 8h7v2H3v-2zm13-1v6l5-3-5-3z"/></svg>
+      </button>
+
+      <!-- アカウント（Supabase） -->
+      <button class="account-btn" id="accountBtn" title="アカウント" aria-label="アカウント">
+        <span id="accountAvatar" class="account-avatar-guest">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        </span>
+      </button>
+
         <div class="promo-container">
         <a href="/youtube-pro" class="icon-btn" id="homePromoBtn" title="ホーム" style="text-decoration:none;">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
@@ -1367,6 +1424,42 @@
           <button class="modal-btn cancel" onclick="closeCreatePl()">キャンセル</button>
           <button class="modal-btn confirm" onclick="doCreatePlaylist()">作成</button>
         </div>
+      </div>
+    </div>
+
+    <!-- アカウントメニュー -->
+    <div id="accountMenu" class="account-menu">
+      <div class="am-head" id="amHead"></div>
+      <div id="amBody"></div>
+    </div>
+
+    <!-- 認証モーダル（ログイン / 新規登録） -->
+    <div id="authOverlay" class="auth-overlay">
+      <div class="auth-card" role="dialog" aria-modal="true">
+        <div class="auth-logo">
+          <svg viewBox="0 0 68 48"><path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55c-2.93.78-4.63 3.26-5.42 6.19C.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="#FF0000"/><path d="M45 24 27 14v20" fill="white"/></svg>
+          <span class="lg-txt">YouTube</span><span class="lg-pro">Pro</span>
+        </div>
+        <div class="auth-title" id="authTitle">ログイン</div>
+        <div class="auth-sub" id="authSub">アカウントで視聴履歴・登録・再生リストを同期</div>
+        <div class="auth-msg" id="authMsg"></div>
+        <form id="authForm" autocomplete="on">
+          <div class="auth-field" id="authNameField" style="display:none;">
+            <label>表示名（任意）</label>
+            <input type="text" id="authName" placeholder="あなたの名前" maxlength="40">
+          </div>
+          <div class="auth-field">
+            <label>メールアドレス</label>
+            <input type="email" id="authEmail" placeholder="you@example.com" required autocomplete="email">
+          </div>
+          <div class="auth-field">
+            <label>パスワード</label>
+            <input type="password" id="authPass" placeholder="6文字以上" required minlength="6" autocomplete="current-password">
+          </div>
+          <button type="submit" class="auth-btn" id="authSubmit">ログイン</button>
+        </form>
+        <div class="auth-switch" id="authSwitch">アカウントをお持ちでない方は <a id="authSwitchLink">新規登録</a></div>
+        <div class="auth-guest"><a id="authGuestLink">ゲストとして続ける</a></div>
       </div>
     </div>
 
@@ -2520,6 +2613,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       hist.unshift({ id: item.id, title: item.title, channel: item.channel, views: item.views, published: item.published, ts: Date.now() });
       if (hist.length > MAX_HISTORY) hist = hist.slice(0, MAX_HISTORY);
       libSet(LIB_HISTORY, hist);
+      try { if (window.cloudPushHistory) window.cloudPushHistory(item); } catch (e) {}
     }
 
     // --- Liked ---
@@ -2543,13 +2637,15 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     function savePlaylists(pls) { libSet(LIB_PLAYLISTS, pls); }
     function addPlaylist(name) {
       const pls = getPlaylists();
-      const pl = { id: Date.now().toString(), name, items: [], createdAt: Date.now() };
+      const pl = { id: Date.now().toString(), name, items: [], createdAt: Date.now(), source: 'manual' };
       pls.push(pl);
       savePlaylists(pls);
+      try { if (window.cloudPushPlaylist) window.cloudPushPlaylist(pl); } catch (e) {}
       return pl;
     }
     function deletePlaylist(plId) {
       savePlaylists(getPlaylists().filter(p => p.id !== plId));
+      try { if (window.cloudDeletePlaylist) window.cloudDeletePlaylist(plId); } catch (e) {}
     }
     function addToPlaylist(plId, item) {
       const pls = getPlaylists();
@@ -2558,6 +2654,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       if (pl.items.find(x => x.id === item.id)) { showToast('既に追加済みです'); return false; }
       pl.items.push({ ...item, ts: Date.now() });
       savePlaylists(pls);
+      try { if (window.cloudPushPlaylist) window.cloudPushPlaylist(pl); } catch (e) {}
       return true;
     }
     function removeFromPlaylist(plId, itemId) {
@@ -2684,12 +2781,18 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         body.innerHTML = actRow + `<div class="lib-empty"><svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>再生リストはまだありません</div>`;
         return;
       }
-      const cards = pls.map(pl => `
+      // 新しい順（AI生成を上に）で並べる
+      const sorted = pls.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      const cards = sorted.map(pl => {
+        const isGen = pl.source === 'gemini' || pl.source === 'mix';
+        const genBadge = isGen ? '<span style="font-size:10.5px;font-weight:700;color:#fff;background:linear-gradient(135deg,#4f8bff,#a26bff,#ff6bd6);padding:2px 7px;border-radius:20px;margin-left:6px;">✨ AI生成</span>' : '';
+        const iconBg = isGen ? 'background:linear-gradient(135deg,#4f8bff,#a26bff,#ff6bd6);' : '';
+        return `
         <div class="playlist-card">
           <div class="playlist-card-header" onclick="openDrawer('playlistDetail','${pl.id}')">
-            <div class="playlist-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></div>
+            <div class="playlist-icon" style="${iconBg}"><svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></div>
             <div>
-              <div class="playlist-name">${pl.name}</div>
+              <div class="playlist-name">${pl.name}${genBadge}</div>
               <div class="playlist-count">${pl.items.length}本の動画</div>
             </div>
           </div>
@@ -2700,7 +2803,8 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
             </button>
             <button class="btn-playlist-delete" onclick="deletePlaylistUI('${pl.id}')">削除</button>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
       body.innerHTML = actRow + cards;
     }
     function deletePlaylistUI(plId) { if (confirm('この再生リストを削除しますか？')) { deletePlaylist(plId); openDrawer('playlists'); } }
@@ -2857,6 +2961,282 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     /* ===================================================================== */
     /* =============== ✨ AI Playlist (MIN-Pro-AI) ========================== */
     /* ===================================================================== */
+    /* =====================================================================
+     *  アカウント & クラウド同期 (Supabase GoTrue + REST を直接利用)
+     *  ・ゲスト利用が既定。ログインすると履歴/登録/再生リストをクラウド同期。
+     *  ・SDKを使わず fetch のみで軽量に実装。
+     * ===================================================================== */
+    (function initAuth() {
+      const SUPABASE_URL = 'https://vrfffnpxhxmeeirwewdd.supabase.co';
+      const SUPABASE_KEY = 'sb_publishable_gWyCUJmoo8_mlnWP9uT8Cg_jAdLuqz2';
+      const AUTH = SUPABASE_URL + '/auth/v1';
+      const REST = SUPABASE_URL + '/rest/v1';
+      const SESSION_KEY = 'mt_supabase_session';
+
+      let session = null;     // { access_token, refresh_token, user }
+      let authMode = 'login'; // 'login' | 'signup'
+
+      function loadSession() { try { session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { session = null; } }
+      function saveSession(s) { session = s; if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s)); else localStorage.removeItem(SESSION_KEY); updateAccountUI(); }
+      function isLoggedIn() { return !!(session && session.access_token && session.user); }
+      function userLabel() {
+        if (!isLoggedIn()) return '';
+        const u = session.user;
+        return (u.user_metadata && u.user_metadata.display_name) || (u.email ? u.email.split('@')[0] : 'User');
+      }
+      function initials() { const l = userLabel(); return (l || 'U').slice(0, 1).toUpperCase(); }
+
+      function authHeaders() {
+        const h = { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' };
+        if (isLoggedIn()) h['Authorization'] = 'Bearer ' + session.access_token;
+        else h['Authorization'] = 'Bearer ' + SUPABASE_KEY;
+        return h;
+      }
+
+      /* ---------- token refresh ---------- */
+      async function refreshIfNeeded() {
+        if (!session || !session.refresh_token) return;
+        try {
+          const r = await fetch(AUTH + '/token?grant_type=refresh_token', {
+            method: 'POST', headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: session.refresh_token })
+          });
+          if (r.ok) { const d = await r.json(); saveSession({ access_token: d.access_token, refresh_token: d.refresh_token, user: d.user }); }
+          else if (r.status === 400 || r.status === 401) { saveSession(null); }
+        } catch (e) {}
+      }
+
+      /* ---------- REST helpers (cloud sync) ---------- */
+      async function restGet(pathq) {
+        try { const r = await fetch(REST + pathq, { headers: authHeaders() }); return r.ok ? await r.json() : null; } catch { return null; }
+      }
+      async function restUpsert(table, rows, onConflict) {
+        try {
+          await fetch(REST + '/' + table + (onConflict ? '?on_conflict=' + onConflict : ''), {
+            method: 'POST', headers: { ...authHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify(rows)
+          });
+        } catch (e) {}
+      }
+      async function restDelete(table, filter) {
+        try { await fetch(REST + '/' + table + '?' + filter, { method: 'DELETE', headers: { ...authHeaders(), 'Prefer': 'return=minimal' } }); } catch (e) {}
+      }
+
+      /* ---------- 双方向同期: ローカル(localStorage) <-> クラウド ---------- */
+      async function syncFromCloud() {
+        if (!isLoggedIn()) return;
+        const uid = session.user.id;
+        // 履歴
+        const hist = await restGet('/watch_history?user_id=eq.' + uid + '&select=video_id,title,channel,thumbnail,watched_at&order=watched_at.desc&limit=200');
+        if (Array.isArray(hist)) {
+          const local = (hist).map(h => ({ id: h.video_id, title: h.title, channel: h.channel, thumbnail: h.thumbnail, ts: new Date(h.watched_at).getTime() }));
+          const merged = mergeById(local, safeLS('mt_history'));
+          localStorage.setItem('mt_history', JSON.stringify(merged.slice(0, 200)));
+        }
+        // 登録チャンネル
+        const subs = await restGet('/subscriptions?user_id=eq.' + uid + '&select=channel');
+        if (Array.isArray(subs)) { subs.forEach(s => { if (s.channel) localStorage.setItem('subscribed_' + s.channel, 'true'); }); }
+        // 保存プレイリスト
+        const pls = await restGet('/user_playlists?user_id=eq.' + uid + '&select=id,name,source,items,created_at&order=created_at.desc');
+        if (Array.isArray(pls)) {
+          const cloudPls = pls.map(p => ({ id: p.id, name: p.name, source: p.source, items: p.items || [], createdAt: new Date(p.created_at).getTime() }));
+          const localPls = safeLS('mt_playlists');
+          const map = {}; [...cloudPls, ...localPls].forEach(p => { map[p.id] = map[p.id] ? map[p.id] : p; });
+          localStorage.setItem('mt_playlists', JSON.stringify(Object.values(map)));
+        }
+        try { if (typeof renderHomeTopPlaylists === 'function') renderHomeTopPlaylists(); } catch (e) {}
+      }
+      function mergeById(a, b) {
+        const seen = new Set(); const out = [];
+        for (const x of [...a, ...b]) { if (!x || !x.id || seen.has(x.id)) continue; seen.add(x.id); out.push(x); }
+        return out.sort((x, y) => (y.ts || 0) - (x.ts || 0));
+      }
+      function safeLS(k) { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch { return []; } }
+
+      async function pushAllToCloud() {
+        if (!isLoggedIn()) return;
+        const uid = session.user.id;
+        const hist = safeLS('mt_history').slice(0, 200).map(h => ({ user_id: uid, video_id: h.id, title: h.title || '', channel: h.channel || '', thumbnail: h.thumbnail || '' })).filter(h => h.video_id);
+        if (hist.length) await restUpsert('watch_history', hist, 'user_id,video_id');
+        const subs = [];
+        for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('subscribed_') && localStorage.getItem(k) === 'true') subs.push({ user_id: uid, channel: k.replace('subscribed_', '') }); }
+        if (subs.length) await restUpsert('subscriptions', subs, 'user_id,channel');
+        const pls = safeLS('mt_playlists').map(p => ({ id: String(p.id), user_id: uid, name: p.name || '再生リスト', source: p.source || 'manual', items: p.items || [] }));
+        if (pls.length) await restUpsert('user_playlists', pls, 'id');
+      }
+
+      // 履歴が追加されたらクラウドにも1件送る（グローバル関数として公開）
+      window.cloudPushHistory = async function (item) {
+        if (!isLoggedIn() || !item || !item.id) return;
+        await restUpsert('watch_history', [{ user_id: session.user.id, video_id: item.id, title: item.title || '', channel: item.channel || '', thumbnail: item.thumbnail || getThumbUrl(item.id, 'mq') }], 'user_id,video_id');
+      };
+      window.cloudPushSubscription = async function (channel, on) {
+        if (!isLoggedIn() || !channel) return;
+        if (on) await restUpsert('subscriptions', [{ user_id: session.user.id, channel }], 'user_id,channel');
+        else await restDelete('subscriptions', 'user_id=eq.' + session.user.id + '&channel=eq.' + encodeURIComponent(channel));
+      };
+      window.cloudPushPlaylist = async function (pl) {
+        if (!isLoggedIn() || !pl) return;
+        await restUpsert('user_playlists', [{ id: String(pl.id), user_id: session.user.id, name: pl.name || '再生リスト', source: pl.source || 'manual', items: pl.items || [] }], 'id');
+      };
+      window.cloudDeletePlaylist = async function (plId) {
+        if (!isLoggedIn()) return;
+        await restDelete('user_playlists', 'user_id=eq.' + session.user.id + '&id=eq.' + encodeURIComponent(plId));
+      };
+      window.isCloudLoggedIn = isLoggedIn;
+
+      /* ---------- Auth actions ---------- */
+      async function doLogin(email, password) {
+        const r = await fetch(AUTH + '/token?grant_type=password', {
+          method: 'POST', headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error_description || d.msg || d.error || 'ログインに失敗しました');
+        saveSession({ access_token: d.access_token, refresh_token: d.refresh_token, user: d.user });
+        return d;
+      }
+      async function doSignup(email, password, name) {
+        const r = await fetch(AUTH + '/signup', {
+          method: 'POST', headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, data: name ? { display_name: name } : {} })
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.msg || d.error_description || d.error || '登録に失敗しました');
+        // メール確認が有効な場合 access_token は返らない
+        if (d.access_token) { saveSession({ access_token: d.access_token, refresh_token: d.refresh_token, user: d.user }); return { confirmed: true }; }
+        return { confirmed: false };
+      }
+      async function doLogout() {
+        try { await fetch(AUTH + '/logout', { method: 'POST', headers: authHeaders() }); } catch (e) {}
+        saveSession(null);
+        closeAccountMenu();
+        showToast('ログアウトしました');
+      }
+
+      /* ---------- UI ---------- */
+      const overlay = document.getElementById('authOverlay');
+      const form = document.getElementById('authForm');
+      const msg = document.getElementById('authMsg');
+      const submitBtn = document.getElementById('authSubmit');
+      const nameField = document.getElementById('authNameField');
+      const titleEl = document.getElementById('authTitle');
+      const subEl = document.getElementById('authSub');
+      const switchEl = document.getElementById('authSwitch');
+
+      function openAuth(mode) {
+        authMode = mode || 'login';
+        renderAuthMode();
+        msg.className = 'auth-msg'; msg.textContent = '';
+        overlay.classList.add('open');
+        setTimeout(() => document.getElementById('authEmail').focus(), 60);
+      }
+      function closeAuth() { overlay.classList.remove('open'); }
+      function renderAuthMode() {
+        if (authMode === 'signup') {
+          titleEl.textContent = 'アカウント作成';
+          subEl.textContent = '無料でアカウントを作成して、すべての端末で同期';
+          submitBtn.textContent = '登録する';
+          nameField.style.display = 'block';
+          switchEl.innerHTML = 'すでにアカウントをお持ちの方は <a id="authSwitchLink">ログイン</a>';
+        } else {
+          titleEl.textContent = 'ログイン';
+          subEl.textContent = 'アカウントで視聴履歴・登録・再生リストを同期';
+          submitBtn.textContent = 'ログイン';
+          nameField.style.display = 'none';
+          switchEl.innerHTML = 'アカウントをお持ちでない方は <a id="authSwitchLink">新規登録</a>';
+        }
+        document.getElementById('authSwitchLink').onclick = () => openAuth(authMode === 'signup' ? 'login' : 'signup');
+      }
+      function setMsg(type, text) { msg.className = 'auth-msg ' + type; msg.textContent = text; }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('authEmail').value.trim();
+        const pass = document.getElementById('authPass').value;
+        const name = document.getElementById('authName').value.trim();
+        if (!email || pass.length < 6) { setMsg('err', 'メールと6文字以上のパスワードを入力してください'); return; }
+        submitBtn.disabled = true;
+        const orig = submitBtn.textContent;
+        submitBtn.innerHTML = '<span class="auth-spin"></span>処理中...';
+        try {
+          if (authMode === 'signup') {
+            const res = await doSignup(email, pass, name);
+            if (res.confirmed) { setMsg('ok', 'アカウントを作成しました！同期を開始します'); await afterLogin(); setTimeout(closeAuth, 900); }
+            else { setMsg('ok', '確認メールを送信しました。メール内のリンクを承認後、ログインしてください。'); authMode = 'login'; renderAuthMode(); }
+          } else {
+            await doLogin(email, pass);
+            setMsg('ok', 'ログインしました！同期しています...');
+            await afterLogin();
+            setTimeout(closeAuth, 800);
+          }
+        } catch (err) {
+          setMsg('err', err.message || 'エラーが発生しました');
+        } finally {
+          submitBtn.disabled = false; submitBtn.textContent = orig;
+        }
+      });
+
+      async function afterLogin() {
+        updateAccountUI();
+        await pushAllToCloud();   // 既存のローカルデータをまずクラウドへ
+        await syncFromCloud();    // クラウドの内容を取り込み
+        showToast('ようこそ、' + userLabel() + ' さん');
+      }
+
+      document.getElementById('authGuestLink').onclick = closeAuth;
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) closeAuth(); });
+
+      /* ---------- Account button / menu ---------- */
+      const accountBtn = document.getElementById('accountBtn');
+      const accountMenu = document.getElementById('accountMenu');
+      function closeAccountMenu() { accountMenu.classList.remove('open'); }
+      function toggleAccountMenu() { accountMenu.classList.contains('open') ? closeAccountMenu() : openAccountMenu(); }
+      function openAccountMenu() { renderAccountMenu(); accountMenu.classList.add('open'); }
+
+      function renderAccountMenu() {
+        const head = document.getElementById('amHead');
+        const body = document.getElementById('amBody');
+        if (isLoggedIn()) {
+          head.innerHTML = '<div class="am-av">' + initials() + '</div><div style="min-width:0;"><div class="am-name">' + escapeHtmlA(userLabel()) + '</div><div class="am-status">' + escapeHtmlA(session.user.email || '') + '</div></div>';
+          body.innerHTML =
+            '<button class="am-item" id="amHistory"><svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 1 0 0 18A9 9 0 0 0 13 3zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7zm.5-11H12v6l5.25 3.15.75-1.23-4.5-2.67V8z"/></svg>視聴履歴</button>' +
+            '<button class="am-item" id="amPlaylists"><svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>再生リスト</button>' +
+            '<button class="am-item" id="amSync"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>今すぐ同期</button>' +
+            '<button class="am-item" id="amLogout" style="color:#ff8080;"><svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>ログアウト</button>';
+          body.querySelector('#amHistory').onclick = () => { closeAccountMenu(); openDrawer('history'); };
+          body.querySelector('#amPlaylists').onclick = () => { closeAccountMenu(); openDrawer('playlists'); };
+          body.querySelector('#amSync').onclick = async () => { showToast('同期中...'); await pushAllToCloud(); await syncFromCloud(); showToast('同期しました ✓'); };
+          body.querySelector('#amLogout').onclick = doLogout;
+        } else {
+          head.innerHTML = '<div class="am-guest-av"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div><div><div class="am-name">ゲスト</div><div class="am-status">ログインして同期しましょう</div></div>';
+          body.innerHTML =
+            '<button class="am-cta" id="amLogin">ログイン</button>' +
+            '<button class="am-item" id="amSignup" style="justify-content:center;color:#4f8bff;font-weight:600;">新規アカウント作成</button>' +
+            '<div style="padding:0 16px 14px;font-size:12px;color:var(--text-muted);line-height:1.5;">ゲストのままでも全機能を利用できます。ログインすると視聴履歴・登録チャンネル・再生リストが全端末で同期され、おすすめ精度が向上します。</div>';
+          body.querySelector('#amLogin').onclick = () => { closeAccountMenu(); openAuth('login'); };
+          body.querySelector('#amSignup').onclick = () => { closeAccountMenu(); openAuth('signup'); };
+        }
+      }
+      function escapeHtmlA(s) { return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+      function updateAccountUI() {
+        const av = document.getElementById('accountAvatar');
+        if (isLoggedIn()) { av.className = 'account-avatar-user'; av.textContent = initials(); }
+        else { av.className = 'account-avatar-guest'; av.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>'; }
+      }
+
+      accountBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleAccountMenu(); });
+      document.addEventListener('click', (e) => { if (!accountMenu.contains(e.target) && e.target !== accountBtn && !accountBtn.contains(e.target)) closeAccountMenu(); });
+
+      window.openAuthModal = openAuth;
+
+      /* ---------- boot ---------- */
+      loadSession();
+      updateAccountUI();
+      if (isLoggedIn()) { refreshIfNeeded().then(() => syncFromCloud()); }
+    })();
+
     (function initAiPlaylist() {
       // AI は暗号化サーバープロキシ経由（生の URL / モデル名はクライアントに露出しない）
       const AI_PROXY_URL = "/api/ai/chat";
@@ -3142,52 +3522,30 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         }
       }
 
-      /* ===== Main generation pipeline ===== */
+      /* ===== Main generation pipeline =====
+       * 【変更】サーバー(/api/ai/home-playlist)経由で生成し、Supabase共有キャッシュを利用。
+       * 同じキーワードのプレイリストが他ユーザーに既にあれば、Geminiを使わず即復元する。 */
       async function startGeneration(opts) {
         renderLoading();
         try {
-          const messages = [
-            { role: 'system', content: STRICT_SYSTEM_PROMPT },
-            { role: 'user', content: buildUserPrompt(opts) }
-          ];
           updateLoadingSub('MIN-Pro-AI に問い合わせ中...');
-          const raw = await callGroq(messages);
-          const titles = parseTitles(raw);
-          if (titles.length < 3) {
-            throw new Error('AIから十分なタイトルを取得できませんでした。もう一度お試しください。');
+          const body = (opts.mode === 'analyze')
+            ? { mode: 'analyze', profile: buildUserProfileSummary() }
+            : { mode: 'input', keywords: opts.keywords };
+          const res = await fetch('/api/ai/home-playlist', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          if (!res.ok) {
+            const e = await res.json().catch(() => ({}));
+            throw new Error(e.error || 'AIプレイリストの生成に失敗しました。もう一度お試しください。');
           }
-          updateLoadingSub(`${titles.length}本の動画をYouTubeで検索中...`);
-
-          // Search in parallel but with concurrency limit
-          const results = [];
-          const CONCURRENCY = 4;
-          let cursor = 0;
-          async function worker() {
-            while (cursor < titles.length) {
-              const myIdx = cursor++;
-              const t = titles[myIdx];
-              const r = await searchTitle(t);
-              if (r) results.push({ ...r, _idx: myIdx });
-            }
-          }
-          await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
-          results.sort((a, b) => a._idx - b._idx);
-
-          // Dedup by video id
-          const seen = new Set();
-          const unique = [];
-          for (const r of results) {
-            if (seen.has(r.id)) continue;
-            seen.add(r.id);
-            unique.push(r);
-          }
-
+          const data = await res.json();
+          const items = (data.items || []).filter(x => x && x.id);
           stopLoadingTimer();
-          if (unique.length === 0) {
-            throw new Error('該当する動画が見つかりませんでした。キーワードを変えて再試行してください。');
-          }
-
-          renderResult(unique);
+          if (items.length === 0) throw new Error('該当する動画が見つかりませんでした。キーワードを変えて再試行してください。');
+          if (data.cached) updateLoadingSub('保存済みのプレイリストを復元しました');
+          renderResult(items);
         } catch (err) {
           stopLoadingTimer();
           renderError(err.message || String(err));
@@ -3258,7 +3616,8 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           let pls = JSON.parse(localStorage.getItem(key) || '[]');
           const cover = playlist[0] || {};
           const name = '✨ ' + (cover.channelTitle ? cover.channelTitle : (cover.title || '').slice(0, 24) || 'AIプレイリスト');
-          pls.push({ id: 'gem_' + Date.now(), name, items: playlist, createdAt: Date.now(), source: 'gemini' });
+          const gemPl = { id: 'gem_' + Date.now(), name, items: playlist, createdAt: Date.now(), source: 'gemini' };
+          pls.push(gemPl);
           // 保存数の暴走を防ぐ（Gemini生成は最新12件まで）
           const gem = pls.filter(p => p.source === 'gemini').sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
           if (gem.length > 12) {
@@ -3266,6 +3625,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
             pls = pls.filter(p => p.source !== 'gemini' || keep.has(p.id));
           }
           localStorage.setItem(key, JSON.stringify(pls));
+          try { if (window.cloudPushPlaylist) window.cloudPushPlaylist(gemPl); } catch (e) {}
         } catch (e) {}
       }
 
