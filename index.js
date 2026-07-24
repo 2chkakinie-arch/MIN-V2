@@ -271,6 +271,50 @@ async function enrichWithAvatars(items) {
 const NIE_AI_URL = "https://nie-ai.vercel.app/v1/chat/completions";
 const NIE_AI_MODEL = "scira-gemini-3.1-flash-lite";
 
+/* =====================================================================
+ *  Supabase（共有プレイリストキャッシュ）
+ *  Gemini が生成したプレイリストを全ユーザーで共有し、同じ要件の生成要求が
+ *  来たら再生成せず復元する（＝クレジット節約 & 一貫性 & 高速化）。
+ *  テーブルが未作成でも動くよう、失敗は握りつぶして通常のGemini生成に落とす。
+ * ===================================================================== */
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://vrfffnpxhxmeeirwewdd.supabase.co";
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_gWyCUJmoo8_mlnWP9uT8Cg_jAdLuqz2";
+const SUPA_REST = SUPABASE_URL.replace(/\/+$/, "") + "/rest/v1";
+const SUPA_HEADERS = { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" };
+
+// 生成要件を正規化してキャッシュキー化（表記ゆれを吸収）
+function playlistCacheKey({ mode, channel, title, keywords }) {
+  const norm = (s) => String(s || "").toLowerCase().normalize("NFKC").replace(/[\s　【】「」()!！?？\[\].,、。・-]/g, "").trim();
+  if (mode === "channel") return "channel:" + norm(channel);
+  const base = keywords ? ("kw:" + norm(keywords)) : ("ctx:" + norm(title) + "|" + norm(channel));
+  return base.slice(0, 220);
+}
+
+// 既存の共有プレイリストを探す（あれば items を返す）
+async function supaFindPlaylist(cacheKey) {
+  try {
+    const url = SUPA_REST + "/shared_playlists?cache_key=eq." + encodeURIComponent(cacheKey) + "&select=label,items,mode&limit=1";
+    const r = await fetchWithAbort(url, { headers: SUPA_HEADERS }, 6000);
+    if (!r.ok) return null;
+    const rows = await r.json();
+    if (Array.isArray(rows) && rows[0] && Array.isArray(rows[0].items) && rows[0].items.length >= 3) {
+      return rows[0];
+    }
+    return null;
+  } catch (e) { return null; }
+}
+
+// 新規生成した共有プレイリストを保存（重複キーは無視）
+async function supaSavePlaylist(cacheKey, { label, mode, items }) {
+  try {
+    await fetchWithAbort(SUPA_REST + "/shared_playlists", {
+      method: "POST",
+      headers: { ...SUPA_HEADERS, "Prefer": "resolution=ignore-duplicates,return=minimal" },
+      body: JSON.stringify({ cache_key: cacheKey, label: label || "", mode: mode || "context", items })
+    }, 6000);
+  } catch (e) { /* テーブル未作成などは無視 */ }
+}
+
 // nie-ai を呼び出す（scira は稀に空応答を返すためリトライ）
 async function callNieAI(messages, { temperature = 0.75, maxTokens = 1000, retries = 3 } = {}) {
   let lastErr = null;
@@ -515,32 +559,13 @@ setInterval(() => {
     }
 }, 300000);
 
-// ミドルウェア: 人間確認,
-app.use(async (req, res, next) => {
-  if (req.path.startsWith("/api") || req.path.startsWith("/video") || req.path === "/") {
-    if (!req.cookies || req.cookies.humanVerified !== "true") {
-      const pages = [
-        'https://raw.githubusercontent.com/mino-hobby-pro/memo/refs/heads/main/min-tube-pro-main-loading.txt',
-        'https://raw.githubusercontent.com/mino-hobby-pro/memo/refs/heads/main/min-tube-pro-sub-roading-like-command-loader-local.txt',
-        'https://raw.githubusercontent.com/mino-hobby-pro/memo/refs/heads/main/google.txt',
-        'https://raw.githubusercontent.com/mino-hobby-pro/memo/refs/heads/main/history.html.txt',
-        'https://raw.githubusercontent.com/mino-hobby-pro/memo/refs/heads/main/gisou/chapcha.html',
-        'https://raw.githubusercontent.com/mino-hobby-pro/memo/refs/heads/main/gisou/easy.html',
-        'https://raw.githubusercontent.com/mino-hobby-pro/MIN-Tube-Pro/refs/heads/main/gizo/Login.html',
-        'https://github.com/mino-hobby-pro/MIN-Tube-Pro/raw/refs/heads/main/gizo/TU.html',
-        'https://github.com/mino-hobby-pro/MIN-Tube-Pro/raw/refs/heads/main/gizo/classroom.html',
-        'https://github.com/mino-hobby-pro/MIN-Tube-Pro/raw/refs/heads/main/gizo/kensaku.html',
-        'https://github.com/mino-hobby-pro/MIN-Tube-Pro/raw/refs/heads/main/gizo/wikipedia.html'
-      ];
-      const randomPage = pages[Math.floor(Math.random() * pages.length)];
-      try {
-        const response = await fetch(randomPage);
-        const htmlContent = await response.text();
-        return res.render("robots", { content: htmlContent });
-      } catch (err) {
-        return res.render("robots", { content: "<p>Verification Required</p>" });
-      }
-    }
+// 【変更】偽装(人間確認)画面と humanVerified Cookie 認証を撤廃。
+// 直接 home.html を表示する（本家 YouTube 同様、余計なゲートを挟まない）。
+// 互換のため、もし過去バージョンで humanVerified を要求していた場合に備え、
+// ここで一度だけ Cookie を立てて以後の古い判定を全て通過させる。
+app.use((req, res, next) => {
+  if (!req.cookies || req.cookies.humanVerified !== "true") {
+    try { res.cookie("humanVerified", "true", { maxAge: 1000 * 60 * 60 * 24 * 365, httpOnly: false }); } catch (e) {}
   }
   next();
 });
@@ -1146,6 +1171,29 @@ const shortsHtml = `
         .quality-badge { font-size:10px; padding:1px 5px; border-radius:3px; background:var(--yt-red); color:#fff; font-weight:700; margin-left:8px; }
         .video-loading-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.75); z-index:150; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; opacity:0; pointer-events:none; transition:opacity .3s ease; backdrop-filter:blur(2px); }
         .video-loading-overlay.active { opacity:1; pointer-events:auto; }
+        /* 制限検知 → 音声ストリーム切替の通知バナー */
+        .restrict-banner { position:absolute; left:50%; top:16px; transform:translateX(-50%) translateY(-16px); z-index:200; background:linear-gradient(135deg,#1f1147,#3a1f6b); border:1px solid rgba(162,107,255,0.5); color:#fff; padding:12px 18px; border-radius:12px; font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:10px; box-shadow:0 8px 32px rgba(0,0,0,0.6); opacity:0; pointer-events:none; transition:opacity .3s, transform .3s; max-width:90%; text-align:left; line-height:1.5; }
+        .restrict-banner.show { opacity:1; transform:translateX(-50%) translateY(0); }
+        .restrict-banner .rb-orb { width:20px; height:20px; border-radius:50%; flex-shrink:0; background:conic-gradient(#a26bff,#4f8bff,#ff6bd6,#a26bff); animation:spin 1.4s linear infinite; }
+        /* 音声のみモードのビジュアライザ画面 */
+        .audio-mode { position:absolute; inset:0; z-index:20; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:radial-gradient(ellipse at 50% 35%, #241546 0%, #0b0b12 70%); color:#fff; text-align:center; padding:20px; }
+        .audio-mode .am-disc { width:120px; height:120px; border-radius:50%; background:conic-gradient(#a26bff,#4f8bff,#ff6bd6,#a26bff); display:flex; align-items:center; justify-content:center; box-shadow:0 0 40px rgba(162,107,255,0.5); animation:spin 6s linear infinite; }
+        .audio-mode.paused .am-disc { animation-play-state:paused; }
+        .audio-mode .am-disc svg { width:44px; height:44px; fill:#fff; }
+        .audio-mode .am-bars { display:flex; gap:5px; align-items:flex-end; height:40px; }
+        .audio-mode .am-bars span { width:5px; background:linear-gradient(#a26bff,#4f8bff); border-radius:3px; animation:ambar 1s ease-in-out infinite; }
+        .audio-mode.paused .am-bars span { animation-play-state:paused; height:8px !important; }
+        @keyframes ambar { 0%,100%{ height:8px; } 50%{ height:40px; } }
+        .audio-mode .am-title { font-size:15px; font-weight:700; max-width:80%; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .audio-mode .am-badge { font-size:11.5px; color:#c8aaff; letter-spacing:.5px; display:flex; align-items:center; gap:6px; }
+        .audio-mode .am-controls { display:flex; align-items:center; gap:18px; margin-top:4px; }
+        .audio-mode .am-btn { background:rgba(255,255,255,0.08); border:none; color:#fff; width:52px; height:52px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s; }
+        .audio-mode .am-btn:hover { background:rgba(255,255,255,0.18); }
+        .audio-mode .am-btn svg { width:26px; height:26px; fill:#fff; }
+        .audio-mode .am-btn.play { width:64px; height:64px; background:#fff; }
+        .audio-mode .am-btn.play svg { fill:#1a1a1a; width:30px; height:30px; }
+        .audio-mode .am-seek { width:min(80%,420px); display:flex; align-items:center; gap:10px; font-size:11px; color:#bbb; }
+        .audio-mode .am-seek input { flex:1; accent-color:#a26bff; }
         .spinner { border:4px solid rgba(255,255,255,0.1); width:50px; height:50px; border-radius:50%; border-top-color:var(--yt-red); animation:spin 1s ease-in-out infinite; margin-bottom:16px; }
         @keyframes spin { to { transform:rotate(360deg); } }
 
@@ -1319,6 +1367,7 @@ const shortsHtml = `
     <div class="main-content">
         <div class="player-container">
             <div id="playerWrapper" style="width:100%; height:100%;">${streamEmbedPlaceholder}</div>
+            <div id="restrictBanner" class="restrict-banner"><div class="rb-orb"></div><span id="restrictBannerText">制限を検知しました。1秒後に音声ストリームのみに切り替わります…</span></div>
             <div id="videoLoadingOverlay" class="video-loading-overlay">
                 <div class="spinner"></div>
                 <div style="font-weight:700; font-size:16px;">動画サーバーに接続中...</div>
@@ -1491,11 +1540,15 @@ const shortsHtml = `
     // 高画質(itag>18)の映像には音声が無いため、別途取得した音声トラックを厳密に同期させる。
     let syncRafId = null;                 // 同期ループ (requestAnimationFrame)
     let savedVolume = 1;                  // ユーザー音量を保持
+    let audioOnlyMode = false;            // 音声のみモードか
+    let restrictHandled = false;          // 制限フォールバックを既に発火したか
+    let playWatchdog = null;              // 再生開始ウォッチドッグ
+    let currentServerName = 'googlevideo';
+
     function mountSyncedPlayer(videoUrl, audioUrl){
       const wrap = document.getElementById('playerWrapper');
       // 直前の同期ループ / 音声要素を確実に破棄
-      if(syncRafId){ cancelAnimationFrame(syncRafId); syncRafId=null; }
-      if(syncAudioEl){ try{ syncAudioEl.pause(); syncAudioEl.src=''; syncAudioEl.remove(); }catch(e){} syncAudioEl=null; }
+      teardownPlayers();
 
       wrap.innerHTML = \`
         <video id="mainPlayer" controls autoplay playsinline style="width:100%;height:100%;position:relative;z-index:10;background:#000;">
@@ -1503,15 +1556,24 @@ const shortsHtml = `
         </video>\`;
       mainVideoEl = document.getElementById('mainPlayer');
 
+      // 映像そのものの再生失敗（403/デコード不可/空）→ 音楽なら音声のみへ
+      attachVideoFailureDetection(mainVideoEl);
+
       if(!audioUrl){
         // 音声込み(360p/itag18等) → そのまま再生
         mainVideoEl.muted = false;
         mainVideoEl.volume = savedVolume;
         attachEndedHandler(mainVideoEl);
+        mainVideoEl.play && mainVideoEl.play().catch(()=>{});
         return;
       }
 
-      /* ===== 別音声トラックを映像と厳密に同期 ===== */
+      /* ===== 別音声トラックを映像と厳密に同期 =====
+       * 【修正】以前は 360P 以外で「音が出ない」問題があった:
+       *   - a.play() が自動再生ポリシーで拒否されても再試行しなかった
+       *   - 映像/音声の waiting でお互いを止め合いデッドロック → 音声が止まったまま
+       *   - bestAudioUrl が期限切れ/空でも保険が無かった
+       * ここを全面的に堅牢化する。 */
       const v = mainVideoEl;
       const a = document.createElement('audio');
       a.src = audioUrl;
@@ -1521,60 +1583,207 @@ const shortsHtml = `
       document.body.appendChild(a);
       syncAudioEl = a;
 
-      // 映像側はミュート（実際の音は audio トラックから出す）
-      v.muted = true;
+      v.muted = true;              // 実音声は audio トラックから
       a.volume = savedVolume;
 
-      let audioReady = false;   // 音声メタデータ読込済み
-      let userWantsPlay = false; // ユーザーが再生状態を望んでいるか
+      let audioReady = false;
+      let userWantsPlay = true;    // 既定で再生を望む（autoplay）
+      let audioFailed = false;
 
-      const nearlyInSync = ()=> Math.abs(a.currentTime - v.currentTime) < 0.25;
       const hardSync = ()=>{ try{ a.currentTime = v.currentTime; }catch(e){} };
+      const tryPlayAudio = ()=>{ if(!audioFailed){ a.play().catch(()=>{}); } };
 
-      // 映像を master とし、毎フレーム音声のズレを補正（>0.3s は即座に、微差は再生速度で吸収）
       const loop = ()=>{
         if(!syncAudioEl){ return; }
-        if(!v.paused && audioReady){
+        if(!v.paused && audioReady && !audioFailed){
+          // 映像が動いているのに音声が止まっていたら再開（デッドロック解消）
+          if(a.paused) tryPlayAudio();
           const drift = a.currentTime - v.currentTime;
-          if(Math.abs(drift) > 0.3){
-            hardSync();
-            a.playbackRate = 1;
-          } else if(Math.abs(drift) > 0.05){
-            // 微小なズレは再生速度を僅かに変えて滑らかに合わせる
-            a.playbackRate = drift > 0 ? 0.97 : 1.03;
-          } else {
-            a.playbackRate = 1;
-          }
+          if(Math.abs(drift) > 0.35){ hardSync(); a.playbackRate = 1; }
+          else if(Math.abs(drift) > 0.06){ a.playbackRate = drift > 0 ? 0.95 : 1.05; }
+          else { a.playbackRate = 1; }
         }
         syncRafId = requestAnimationFrame(loop);
       };
 
-      a.addEventListener('loadedmetadata', ()=>{ audioReady = true; hardSync(); if(userWantsPlay) a.play().catch(()=>{}); });
-      a.addEventListener('canplaythrough', ()=>{ audioReady = true; });
+      // 音声トラックが一定時間で読めない/失敗 → プロキシ音声に差し替え、それも無理なら映像の内蔵音を使う
+      let audioLoadTimer = setTimeout(()=>{
+        if(!audioReady && !audioFailed){ swapAudioToProxy(); }
+      }, 6000);
 
-      // ユーザー操作 / 映像イベント → 音声を追従
-      v.addEventListener('play', ()=>{ userWantsPlay=true; hardSync(); a.play().catch(()=>{}); });
+      function swapAudioToProxy(){
+        // /audio-stream に切替（clipto→Orby フォールバック済みの安定音源）
+        try{
+          const proxied = '/audio-stream/' + VIDEO_ID;
+          if(a.src.indexOf('/audio-stream/') === -1){
+            a.src = proxied;
+            a.load();
+            tryPlayAudio();
+            return;
+          }
+        }catch(e){}
+        // プロキシもダメ → 最後の手段: 映像の内蔵音声を鳴らす（無音回避を最優先）
+        audioFailed = true;
+        try{ v.muted = false; v.volume = savedVolume; }catch(e){}
+      }
+
+      a.addEventListener('loadedmetadata', ()=>{ audioReady = true; clearTimeout(audioLoadTimer); hardSync(); tryPlayAudio(); });
+      a.addEventListener('canplay', ()=>{ audioReady = true; clearTimeout(audioLoadTimer); if(v._pausedForAudio){ v._pausedForAudio=false; if(userWantsPlay) v.play().catch(()=>{}); } if(!v.paused) tryPlayAudio(); });
+      a.addEventListener('canplaythrough', ()=>{ audioReady = true; clearTimeout(audioLoadTimer); });
+      a.addEventListener('error', ()=>{ clearTimeout(audioLoadTimer); if(!audioFailed) swapAudioToProxy(); });
+
+      v.addEventListener('play', ()=>{ userWantsPlay=true; hardSync(); tryPlayAudio(); });
       v.addEventListener('pause', ()=>{ userWantsPlay=false; a.pause(); });
       v.addEventListener('seeking', hardSync);
-      v.addEventListener('seeked', ()=>{ hardSync(); if(!v.paused) a.play().catch(()=>{}); });
-      // 映像がバッファ待ち → 音声も止めて先行しないように
-      v.addEventListener('waiting', ()=> a.pause());
-      v.addEventListener('playing', ()=>{ hardSync(); if(!v.paused) a.play().catch(()=>{}); });
-      v.addEventListener('ratechange', ()=>{ /* 映像速度に音声も追従(±補正込み) */ });
-      // 音量は映像側スライダーで操作 → 実音声(audio)へ反映
+      v.addEventListener('seeked', ()=>{ hardSync(); if(!v.paused) tryPlayAudio(); });
+      v.addEventListener('playing', ()=>{ hardSync(); if(!v.paused) tryPlayAudio(); });
       v.addEventListener('volumechange', ()=>{
         savedVolume = v.muted ? 0 : (v.volume||1);
-        a.volume = v.muted ? 0 : v.volume;
-        // 映像側は常にミュート維持（二重音声防止）。UI 上のミュート表現のみ許可
-        if(!v.muted) v.muted = true;
+        if(!audioFailed){ a.volume = v.muted ? 0 : v.volume; if(!v.muted) v.muted = true; }
       });
-      // 音声がバッファ待ち → 映像も一瞬止めて同期崩れを防止
-      a.addEventListener('waiting', ()=>{ if(!v.paused){ v.pause(); v._pausedForAudio=true; } });
-      a.addEventListener('canplay', ()=>{ if(v._pausedForAudio){ v._pausedForAudio=false; v.play().catch(()=>{}); } });
+      // 映像がバッファ待ちのときだけ音声を止める（audio側waitingでは映像を止めない＝片方待ちの膠着を防止）
+      v.addEventListener('waiting', ()=>{ if(!audioFailed) a.pause(); });
 
       attachEndedHandler(v);
       syncRafId = requestAnimationFrame(loop);
+      v.play && v.play().catch(()=>{});
     }
+
+    function teardownPlayers(){
+      if(syncRafId){ cancelAnimationFrame(syncRafId); syncRafId=null; }
+      if(playWatchdog){ clearTimeout(playWatchdog); playWatchdog=null; }
+      if(syncAudioEl){ try{ syncAudioEl.pause(); syncAudioEl.src=''; syncAudioEl.remove(); }catch(e){} syncAudioEl=null; }
+    }
+
+    /* =================================================================
+     *  制限検知 → 音声ストリーム自動フォールバック
+     *  音楽動画は著作権で googlevideo / DL-Pro 等で再生できないことがある。
+     *  「動画として埋め込めていない/再生が全く進まない」ことを検知したら、
+     *  1秒の予告のあと自動で音声のみ (/audio-stream) に切替える。
+     *  ・プレイリスト再生中は積極的に発火（音楽体験を止めない）
+     *  ・プレイリスト外でも "露骨に" 再生できていなければ発火
+     *  ・誤検知を避けるため「一度でも再生が進んだ」場合は発火しない
+     * ================================================================= */
+    function isMusicContext(){
+      // プレイリスト(Mix)として再生中か、タイトル/チャンネルが音楽的か
+      if(MIX_STATE && MIX_STATE.playlist && MIX_STATE.playlist.length) return true;
+      const t=(VIDEO_TITLE||'')+' '+(VIDEO_CH||'');
+      return /(official|mv|m\\/v|lyric|audio|feat|ft\\.|remix|cover|ミュージック|歌ってみた|カバー|ピアノ|piano|acoustic|vevo|- topic|song|music|オルゴール|弾いてみた)/i.test(t);
+    }
+    // 映像プレイヤーに失敗検知を仕込む
+    function attachVideoFailureDetection(v){
+      if(!v) return;
+      let progressed = false;
+      const markProgress = ()=>{ if(v.currentTime>0.4){ progressed=true; } };
+      v.addEventListener('timeupdate', markProgress);
+
+      // <video> の致命的エラー（デコード不可 / ソース無効 / ネットワーク）
+      v.addEventListener('error', ()=>{ maybeFallbackToAudio('video-error'); });
+      // <source> レベルのエラー
+      const srcEl=v.querySelector('source');
+      if(srcEl) srcEl.addEventListener('error', ()=>{ maybeFallbackToAudio('source-error'); });
+      // stalled / suspend が続き、かつ全く進んでいない → 埋め込み失敗の可能性
+      v.addEventListener('stalled', ()=>{ scheduleStallCheck(); });
+      v.addEventListener('emptied', ()=>{ if(!progressed) maybeFallbackToAudio('emptied'); });
+
+      let stallTimer=null;
+      function scheduleStallCheck(){
+        if(stallTimer) return;
+        stallTimer=setTimeout(()=>{ stallTimer=null; if(!progressed && (v.readyState<2 || v.networkState===3)) maybeFallbackToAudio('stalled'); }, 3500);
+      }
+
+      // 起動ウォッチドッグ: 一定時間で1フレームも進まない = 露骨に再生できていない
+      if(playWatchdog) clearTimeout(playWatchdog);
+      // 音楽なら短め(積極的)、それ以外は長め(誤検知抑制)
+      const grace = isMusicContext() ? 4500 : 8000;
+      playWatchdog=setTimeout(()=>{
+        if(!progressed && !audioOnlyMode){
+          // 音楽なら即フォールバック。非音楽でも「readyStateが低く全く進まない」なら救済。
+          if(isMusicContext() || v.readyState < 2) maybeFallbackToAudio('watchdog');
+        }
+      }, grace);
+    }
+
+    // フォールバック判定（対象サーバーが googlevideo / DL-Pro のとき）
+    function maybeFallbackToAudio(reason){
+      if(audioOnlyMode || restrictHandled) return;
+      const eligibleServer = (currentServerName==='googlevideo' || currentServerName==='DL-Pro');
+      // iframe系サーバーは対象外（自前<video>ではないため検知不可）
+      if(!eligibleServer) return;
+      // 音楽コンテキスト、または露骨な失敗(video-error/source-error/emptied)なら発火
+      const blatant = (reason==='video-error'||reason==='source-error'||reason==='emptied');
+      if(!isMusicContext() && !blatant) return;
+      restrictHandled = true;
+      showRestrictBannerThenAudio();
+    }
+
+    function showRestrictBannerThenAudio(){
+      const banner=document.getElementById('restrictBanner');
+      const txt=document.getElementById('restrictBannerText');
+      if(txt) txt.textContent='再生の制限を検知しました。1秒後に音声ストリームのみに切り替わります…';
+      if(banner) banner.classList.add('show');
+      setTimeout(()=>{ if(banner) banner.classList.remove('show'); enterAudioOnly(); }, 1000);
+    }
+
+    // 音声のみモードへ突入（/audio-stream をソースにしたオーディオプレイヤー + ビジュアライザ）
+    async function enterAudioOnly(){
+      if(audioOnlyMode) return;
+      audioOnlyMode = true;
+      teardownPlayers();
+      const wrap=document.getElementById('playerWrapper');
+      const bars = Array.from({length:9}).map((_,i)=>\`<span style="animation-delay:\${(i*0.09).toFixed(2)}s;height:\${8+((i*7)%32)}px;"></span>\`).join('');
+      wrap.innerHTML=\`
+        <div class="audio-mode" id="audioMode">
+          <div class="am-disc"><svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>
+          <div class="am-bars">\${bars}</div>
+          <div class="am-title">\${escHtml(VIDEO_TITLE)}</div>
+          <div class="am-badge">🎧 音声ストリーム再生中（制限回避）</div>
+          <div class="am-seek"><span id="amCur">0:00</span><input id="amSeek" type="range" min="0" max="1000" value="0"><span id="amDur">0:00</span></div>
+          <div class="am-controls">
+            <button class="am-btn" id="amBack" title="10秒戻る"><svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg></button>
+            <button class="am-btn play" id="amPlay" title="再生/一時停止"><svg viewBox="0 0 24 24" id="amPlayIcon"><path d="M8 5v14l11-7z"/></svg></button>
+            <button class="am-btn" id="amFwd" title="10秒進む"><svg viewBox="0 0 24 24"><path d="M13 6v12l8.5-6L13 6zM4 18l8.5-6L4 6v12z"/></svg></button>
+          </div>
+        </div>\`;
+
+      const audio=document.createElement('audio');
+      audio.src='/audio-stream/'+VIDEO_ID;
+      audio.preload='auto';
+      audio.autoplay=true;
+      audio.volume=savedVolume||1;
+      audio.style.display='none';
+      document.body.appendChild(audio);
+      syncAudioEl=audio;
+
+      const mode=document.getElementById('audioMode');
+      const playIcon=document.getElementById('amPlayIcon');
+      const seek=document.getElementById('amSeek');
+      const curEl=document.getElementById('amCur');
+      const durEl=document.getElementById('amDur');
+      const fmt=(s)=>{ s=Math.floor(s||0); const m=Math.floor(s/60); const ss=('0'+(s%60)).slice(-2); return m+':'+ss; };
+      const setIcon=(playing)=>{ playIcon.innerHTML = playing ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>' : '<path d="M8 5v14l11-7z"/>'; mode.classList.toggle('paused', !playing); };
+
+      document.getElementById('amPlay').onclick=()=>{ if(audio.paused) audio.play().catch(()=>{}); else audio.pause(); };
+      document.getElementById('amBack').onclick=()=>{ audio.currentTime=Math.max(0,audio.currentTime-10); };
+      document.getElementById('amFwd').onclick=()=>{ audio.currentTime=Math.min(audio.duration||1e9,audio.currentTime+10); };
+      audio.addEventListener('play', ()=>setIcon(true));
+      audio.addEventListener('pause', ()=>setIcon(false));
+      audio.addEventListener('loadedmetadata', ()=>{ durEl.textContent=fmt(audio.duration); });
+      audio.addEventListener('timeupdate', ()=>{ if(audio.duration){ seek.value=Math.round(audio.currentTime/audio.duration*1000); curEl.textContent=fmt(audio.currentTime); } });
+      seek.addEventListener('input', ()=>{ if(audio.duration){ audio.currentTime=seek.value/1000*audio.duration; } });
+      // 音声が終わったら Mix の次へ（プレイリスト体験を維持）
+      audio.addEventListener('ended', onVideoEnded);
+      audio.play().catch(()=>{ setIcon(false); });
+      setIcon(true);
+      // 音声すら取得できない場合（極めて稀）: nocookie 埋め込みに退避
+      audio.addEventListener('error', ()=>{
+        const badge=mode && mode.querySelector('.am-badge');
+        if(badge) badge.textContent='⚠️ 音声の取得に失敗しました。埋め込み再生に切替えます…';
+        setTimeout(()=>{ wrap.innerHTML = buildIframe('https://www.youtube-nocookie.com/embed/'+VIDEO_ID+'?autoplay=1'); }, 1200);
+      });
+    }
+    // 手動でも音声のみへ切替できるよう公開
+    window.forceAudioOnly=()=>{ restrictHandled=true; enterAudioOnly(); };
 
     async function loadQualityMenu(){
       try{
@@ -1616,8 +1825,9 @@ const shortsHtml = `
       const overlay=document.getElementById('videoLoadingOverlay'); overlay.classList.add('active');
       const wasTime = mainVideoEl ? mainVideoEl.currentTime : 0;
       const wasPaused = mainVideoEl ? mainVideoEl.paused : false;
-      // 音声込みの画質(360p等)はそのまま。それ以外は必ず別音声(mp3/m4a)を同期
-      const audioUrl = v.hasAudio ? '' : (QUALITY_DATA.bestAudioUrl || '');
+      // 音声込みの画質(360p等)はそのまま。それ以外は必ず別音声を同期。
+      // 【修正】bestAudioUrl が空でも無音にならないよう、自前プロキシ音声にフォールバック。
+      const audioUrl = v.hasAudio ? '' : (QUALITY_DATA.bestAudioUrl || ('/audio-stream/' + VIDEO_ID));
       mountSyncedPlayer(v.url, audioUrl);
       if(mainVideoEl){
         mainVideoEl.addEventListener('loadedmetadata', ()=>{
@@ -1632,6 +1842,11 @@ const shortsHtml = `
 
     async function changeServer(serverName, endpointPath, event){
       localStorage.setItem('playbackMode', serverName);
+      // 制限フォールバックの状態をサーバー切替のたびにリセット
+      currentServerName = serverName;
+      audioOnlyMode = false;
+      restrictHandled = false;
+      { const rb=document.getElementById('restrictBanner'); if(rb) rb.classList.remove('show'); }
       document.getElementById('serverMenu').classList.remove('show');
       document.querySelectorAll('.server-option').forEach(o=>o.classList.remove('active'));
       if(event && event.currentTarget) event.currentTarget.classList.add('active');
@@ -1765,11 +1980,16 @@ const shortsHtml = `
       };
     }
 
-    // Mix コンテナ: 提案/生成中/保留は「関連の下」、再生中は「関連の上(=YouTube本家)」
-    function mixSlot(){ return document.getElementById('mixContainer'); }
+    // 【修正】Mix は再生中・提案・生成中いずれも「関連動画の上」(=YouTube本家と同じ)に表示する。
+    // 以前は提案/生成中/保留を #mixContainer(=関連の下)に出していたため、
+    // 後から読み込まれる関連動画に押しつぶされて一番下に潜り込むバグがあった。
+    // 常に上段スロット(#mixContainerTop)を使い、下段は空のまま保つ。
+    function mixSlot(){ return document.getElementById('mixContainerTop'); }
     function mixSlotTop(){ return document.getElementById('mixContainerTop'); }
+    function clearBottomSlot(){ const b=document.getElementById('mixContainer'); if(b) b.innerHTML=''; }
 
     async function initMixOrDetect(){
+      clearBottomSlot();
       // 1) 既に Mix 再生中（前ページから引き継ぎ）なら再生モードで表示
       const savedPl=sessionStorage.getItem('mix_playlist');
       const savedIdx=sessionStorage.getItem('mix_index');
@@ -1783,24 +2003,23 @@ const shortsHtml = `
             if(idx<0) idx=parseInt(savedIdx)||0;
             MIX_STATE={playlist:pl,index:idx,label:savedLabel};
             sessionStorage.setItem('mix_index',String(idx));
-            // 別動画へ移った時のために保留Mixもクリア（再生中が優先）
             clearPendingMix();
+            // 【修正】プレイリストとして再生中なら、必ず展開して関連動画の一番上に固定する。
             renderMixPlaying();
             return;
           }
-          // 含まれない動画に来た → 再生中Mixは「保留Mix」に格下げして邪魔にならないコンパクト表示へ
-          demoteToPendingMix(pl, savedLabel);
+          // 【修正】プレイリストに含まれない動画に来た＝プレイリスト再生から外れた。
+          // 音楽なら「新しいプレイリストを積極的に生成」するので、古い再生中Mixはここで破棄する。
+          // （以前は"保留Mix"に格下げして居座り続け、新規生成をブロックしていた＝もどかしいバグ）
           sessionStorage.removeItem('mix_playlist');
           sessionStorage.removeItem('mix_index');
           sessionStorage.removeItem('mix_label');
+          clearPendingMix();
         }catch(e){}
       }
 
-      // 2) 保留Mix（前に生成/再生していたが未クリックのもの）があればコンパクト表示
-      //    2回表示されて一度もクリックされなければ非表示（=邪魔しない）
-      if(showPendingMixIfAny()) return;
-
-      // 3) 音楽なら 新規 Mix を提案（アルゴリズム・AI不使用）
+      // 2) 音楽なら「毎回」新規 Mix を積極生成（MINV2 は軽量アルゴリズムなので即時生成できる）。
+      //    以前のような "一度作ったら付きまとって二度と作られない" 挙動は撤廃。
       try{
         const q=new URLSearchParams({title:VIDEO_TITLE, channel:VIDEO_CH});
         renderMixGenerating();
@@ -1998,7 +2217,7 @@ const shortsHtml = `
     // 再生中は「関連動画の上」に表示（本家 YouTube と同じ挙動）。下段スロットは空に。
     function renderMixPlaying(){
       const s=mixSlotTop(); if(!s || !MIX_STATE) return;
-      if(mixSlot()) mixSlot().innerHTML='';
+      clearBottomSlot();
       const {playlist,index,label}=MIX_STATE;
       const body=playlist.map((it,i)=>\`
         <a href="/video/\${it.id}" class="mix-item \${i===index?'playing':''}" onclick="event.preventDefault(); playMixAt(\${i});">
@@ -2462,6 +2681,14 @@ app.post("/api/ai/playlist", express.json({ limit: "16kb" }), async (req, res) =
         "これに関連する、同じ雰囲気・ジャンルの動画で再生リストを作ってください。";
     }
 
+    // 1) まず共有キャッシュ(Supabase)を探す。同じ要件があれば復元（Geminiが生成した風に返す）
+    const cacheKey = playlistCacheKey({ mode, channel, title, keywords });
+    const cached = await supaFindPlaylist(cacheKey);
+    if (cached) {
+      return res.json({ ok: true, label: cached.label || label, source: "gemini", cached: true, items: cached.items });
+    }
+
+    // 2) 無ければ Gemini(nie-ai) で新規生成
     const raw = await callNieAI(
       [{ role: "system", content: sysPrompt }, { role: "user", content: userPrompt }],
       { temperature: 0.8, maxTokens: 800, retries: 3 }
@@ -2470,9 +2697,53 @@ app.post("/api/ai/playlist", express.json({ limit: "16kb" }), async (req, res) =
     if (titles.length < 3) return res.status(502).json({ error: "十分なタイトルを取得できませんでした" });
     const items = await resolveTitlesToVideos(titles, { concurrency: 5, excludeIds });
     if (items.length < 3) return res.status(502).json({ error: "動画が見つかりませんでした" });
+
+    // 3) 生成結果を共有キャッシュへ保存（次回以降は他ユーザーも復元できる）
+    supaSavePlaylist(cacheKey, { label, mode, items }).catch(() => {});
     res.json({ ok: true, label, source: "gemini", items });
   } catch (e) {
     res.status(502).json({ error: "プレイリスト生成に失敗しました", detail: e.message });
+  }
+});
+
+// (C-3) ホームの ✨AIプレイリスト 用: 共有キャッシュ対応の完成品を返す
+//   mode: 'input'(keywords) | 'analyze'(profile)
+//   これでホーム側も「同じ要件なら他ユーザーの生成結果を復元」できる。
+app.post("/api/ai/home-playlist", express.json({ limit: "16kb" }), async (req, res) => {
+  try {
+    const mode = String(req.body?.mode || "input");
+    const keywords = clip(String(req.body?.keywords || "").trim(), 400);
+    const profile = clip(String(req.body?.profile || "").trim(), 2500);
+
+    // 分析モードは各ユーザー固有のためキャッシュしない。入力モードのみ共有キャッシュ。
+    const cacheable = (mode === "input" && keywords);
+    const cacheKey = cacheable ? playlistCacheKey({ mode: "input", keywords }) : null;
+    if (cacheKey) {
+      const cached = await supaFindPlaylist(cacheKey);
+      if (cached) return res.json({ ok: true, source: "gemini", cached: true, label: cached.label || ("✨ " + keywords), items: cached.items });
+    }
+
+    const sysPrompt =
+      "あなたはユーザーの好みからYouTubeの動画プレイリストを作るAIです。【厳守】\n" +
+      "1. 前置き・挨拶・説明は一切書かない。\n" +
+      "2. YouTubeに実在する有名で人気の動画のタイトルを9本前後、各タイトルの末尾に必ず「.」を付けて区切る。\n" +
+      "3. 架空タイトル禁止。アーティスト名/チャンネル名を含む検索でヒットしやすい正確なタイトルにする。\n" +
+      "4. 出力形式の例: タイトル1.タイトル2.\n5. 重複禁止。";
+    const userPrompt = (mode === "analyze")
+      ? ("以下はユーザーの視聴データです。好みを分析し『もっと見たくなる』実在の人気動画で9本前後のプレイリストを作ってください。\n\n" + (profile || "【データなし】多様で人気の高い代表的な動画を推薦してください。"))
+      : ("ユーザーの好みのキーワード：" + keywords + "\nこれに関連する実在の有名動画で9本前後のプレイリストを作成してください。");
+
+    const raw = await callNieAI([{ role: "system", content: sysPrompt }, { role: "user", content: userPrompt }], { temperature: 0.8, maxTokens: 900, retries: 3 });
+    const titles = parseAiTitles(raw);
+    if (titles.length < 3) return res.status(502).json({ error: "十分なタイトルを取得できませんでした" });
+    const items = await resolveTitlesToVideos(titles, { concurrency: 5 });
+    if (items.length < 3) return res.status(502).json({ error: "動画が見つかりませんでした" });
+
+    const label = (mode === "analyze") ? "✨ あなたへのおすすめ" : ("✨ " + keywords);
+    if (cacheKey) supaSavePlaylist(cacheKey, { label, mode: "input", items }).catch(() => {});
+    res.json({ ok: true, source: "gemini", label, items });
+  } catch (e) {
+    res.status(502).json({ error: "生成に失敗しました", detail: e.message });
   }
 });
 
@@ -2656,6 +2927,161 @@ app.get('/streams', (req, res) => {
     const cacheData = Object.fromEntries(videoCache);
     res.json(cacheData);
 });
+
+/* =====================================================================
+ *  音声ストリーム・フォールバック (著作権制限された音楽動画向け)
+ *  googlevideo / DL-Pro などで映像が再生できない(埋め込めない)場合に、
+ *  「音声のみ」に切り替えて音楽を楽しめるようにする。
+ *
+ *  音源の優先順位:
+ *    1) clipto.com の mp3 API（ユーザー指定・どんな曲も取得可能）
+ *       ※ ダウンロードではなく“音声ストリーム”として利用するため、
+ *          サーバー側でプロキシし、Range 対応で <audio> にそのまま流す。
+ *    2) Orby の bestAudio トラック（clipto が使えない場合の確実な保険）
+ *  これにより誤検知でも「音が全く出ない」事態を防ぐ。
+ * ===================================================================== */
+const audioResolveCache = new Map(); // videoId -> { url, expiry }
+const AUDIO_URL_TTL = 4 * 60 * 1000;
+
+const CLIPTO_CSRF = process.env.CLIPTO_CSRF || "YrbTGlag-GmobCwzxxjTpoIRHSM_n_JY-420";
+const CLIPTO_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept": "application/json, text/plain, */*",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Referer": "https://www.clipto.com/",
+  "Origin": "https://www.clipto.com"
+};
+
+// clipto レスポンスから mp3 URL を抽出（JSON形状が揺れても拾えるよう総当り）
+function extractMp3Url(obj) {
+  if (!obj) return "";
+  if (typeof obj === "string") {
+    return /^https?:\/\/.+\.(mp3|m4a|webm|audio)/i.test(obj) || /\.mp3(\?|$)/i.test(obj) ? obj : "";
+  }
+  const keys = ["url", "downloadUrl", "download_url", "link", "mp3", "audioUrl", "audio_url", "dlink", "result", "data", "file"];
+  for (const k of keys) {
+    if (obj[k]) {
+      const found = extractMp3Url(obj[k]);
+      if (found) return found;
+    }
+  }
+  // 配列やネストを走査
+  for (const v of Object.values(obj)) {
+    if (v && typeof v === "object") {
+      const found = extractMp3Url(v);
+      if (found) return found;
+    } else if (typeof v === "string" && /^https?:\/\/[^\s"']+\.(mp3|m4a)(\?|$)/i.test(v)) {
+      return v;
+    }
+  }
+  return "";
+}
+
+// clipto から mp3 の直リンクを取得（複数のリクエスト形を試す）
+async function cliptoResolveMp3(videoId) {
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const attempts = [
+    `https://www.clipto.com/api/youtube/mp3?url=${encodeURIComponent(watchUrl)}&csrfToken=${encodeURIComponent(CLIPTO_CSRF)}`,
+    `https://www.clipto.com/api/youtube/mp3?url=${encodeURIComponent("https://youtu.be/" + videoId)}&csrfToken=${encodeURIComponent(CLIPTO_CSRF)}`,
+    // ユーザー指定そのままの形（生の & 連結）も一応試す
+    `https://www.clipto.com/api/youtube/mp3?url=${watchUrl}&csrfToken=${CLIPTO_CSRF}`
+  ];
+  for (const u of attempts) {
+    try {
+      const r = await fetchWithAbort(u, { headers: CLIPTO_HEADERS, redirect: "follow" }, 15000);
+      const ct = (r.headers.get("content-type") || "").toLowerCase();
+      // 直接 audio が返るパターン
+      if (r.ok && /audio\//.test(ct)) return u; // このURL自体が音声。プロキシで流す。
+      if (!r.ok) continue;
+      const text = await r.text();
+      let parsed = null;
+      try { parsed = JSON.parse(text); } catch (e) { parsed = null; }
+      const mp3 = parsed ? extractMp3Url(parsed) : (text.match(/https?:\/\/[^\s"']+\.(mp3|m4a)(\?[^\s"']*)?/i) || [])[0];
+      if (mp3) return mp3;
+    } catch (e) { /* 次を試す */ }
+  }
+  return "";
+}
+
+// 最終的に再生に使う音声URLを解決（clipto → Orby の順、キャッシュ付き）
+async function resolveAudioUrl(videoId) {
+  const now = Date.now();
+  const c = audioResolveCache.get(videoId);
+  if (c && c.expiry > now && c.url) return c.url;
+
+  let url = "";
+  try { url = await cliptoResolveMp3(videoId); } catch (e) {}
+  if (!url) {
+    // 保険: Orby の最良音声トラック
+    try {
+      const streams = await orbyGetAllStreams(videoId);
+      url = streams.bestAudioUrl || (streams.audioStreams && streams.audioStreams[0] && streams.audioStreams[0].url) || "";
+    } catch (e) {}
+  }
+  if (url) audioResolveCache.set(videoId, { url, expiry: now + AUDIO_URL_TTL });
+  return url;
+}
+
+// (JSON) フロントが音声URLの有無を確認するための軽量エンドポイント
+app.get('/api/audio-source/:videoId', async (req, res) => {
+  try {
+    const url = await resolveAudioUrl(req.params.videoId);
+    if (!url) return res.status(404).json({ ok: false, error: "no audio source" });
+    // 直リンクは露出させず、常に自前プロキシ経由のURLを返す
+    res.json({ ok: true, stream: `/audio-stream/${req.params.videoId}` });
+  } catch (e) {
+    res.status(502).json({ ok: false, error: e.message });
+  }
+});
+
+// 実際の音声バイトをプロキシ（Range 対応 → <audio> でシーク可能）
+app.get('/audio-stream/:videoId', async (req, res) => {
+  try {
+    const src = await resolveAudioUrl(req.params.videoId);
+    if (!src) { res.status(404).send("no audio"); return; }
+
+    const range = req.headers.range;
+    const upstreamHeaders = { "User-Agent": CLIPTO_HEADERS["User-Agent"] };
+    if (range) upstreamHeaders["Range"] = range;
+    // clipto 直URLの場合は Referer を付ける
+    if (/clipto\.com/i.test(src)) { upstreamHeaders["Referer"] = "https://www.clipto.com/"; }
+
+    const upstream = await fetch(src, { headers: upstreamHeaders, redirect: "follow" });
+    if (!upstream.ok && upstream.status !== 206) {
+      // clipto が落ちていたら Orby にフォールバックしてもう一度
+      audioResolveCache.delete(req.params.videoId);
+      const alt = await resolveAudioUrl(req.params.videoId);
+      if (alt && alt !== src) {
+        const u2 = await fetch(alt, { headers: upstreamHeaders, redirect: "follow" });
+        if (u2.ok || u2.status === 206) return pipeAudio(u2, res, range);
+      }
+      res.status(502).send("audio upstream failed");
+      return;
+    }
+    return pipeAudio(upstream, res, range);
+  } catch (e) {
+    res.status(502).send("audio proxy error");
+  }
+});
+
+function pipeAudio(upstream, res, range) {
+  const ct = upstream.headers.get("content-type") || "audio/mpeg";
+  const len = upstream.headers.get("content-length");
+  const cr = upstream.headers.get("content-range");
+  res.status(range && (upstream.status === 206 || cr) ? 206 : 200);
+  res.setHeader("Content-Type", /audio|octet|webm|mp4/i.test(ct) ? ct : "audio/mpeg");
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Cache-Control", "no-store");
+  if (len) res.setHeader("Content-Length", len);
+  if (cr) res.setHeader("Content-Range", cr);
+  // node-fetch v2: body は Node stream
+  if (upstream.body && typeof upstream.body.pipe === "function") {
+    upstream.body.pipe(res);
+    upstream.body.on("error", () => { try { res.end(); } catch (e) {} });
+  } else {
+    upstream.arrayBuffer().then(buf => res.end(Buffer.from(buf))).catch(() => { try { res.end(); } catch (e) {} });
+  }
+}
 app.get('/360/:videoId',async(req,res)=>{const videoId=req.params.videoId;const now=Date.now();const cachedItem=videoCache.get(videoId);if(cachedItem&&cachedItem.expiry>now){return res.type('text/plain').send(cachedItem.url);}const _0x1a=[0x79,0x85,0x85,0x81,0x84,0x4b,0x40,0x40,0x78,0x76,0x85,0x7d,0x72,0x85,0x76,0x3f,0x75,0x76,0x87,0x40,0x72,0x81,0x7a,0x40,0x85,0x80,0x80,0x7d,0x84,0x40,0x8a,0x80,0x86,0x85,0x86,0x73,0x76,0x3e,0x7d,0x7a,0x87,0x76,0x3e,0x75,0x80,0x88,0x7f,0x7d,0x80,0x72,0x75,0x76,0x83,0x50,0x86,0x83,0x7d,0x4e,0x79,0x85,0x85,0x81,0x84,0x36,0x44,0x52,0x36,0x43,0x57,0x36,0x43,0x57,0x88,0x88,0x88,0x3f,0x8a,0x80,0x86,0x85,0x86,0x73,0x76,0x3f,0x74,0x80,0x7e,0x36,0x43,0x57,0x88,0x72,0x85,0x74,0x79,0x36,0x44,0x57,0x87,0x36,0x44,0x55];const _0x2b=[0x37,0x77,0x80,0x83,0x7e,0x72,0x85,0x5a,0x75,0x4e,0x43];const _0x11=['\x6d\x61\x70','\x66\x72\x6f\x6d\x43\x68\x61\x72\x43\x6f\x64\x65','\x6a\x6f\x69\x6e'];const _0x4d=_0x1a[_0x11[0]](_0x5e=>String[_0x11[1]](_0x5e-0x11))[_0x11[2]]('');const _0x5e=_0x2b[_0x11[0]](_0x6f=>String[_0x11[1]](_0x6f-0x11))[_0x11[2]]('');const targetUrl=_0x4d+videoId+_0x5e;try{const response=await fetch(targetUrl,{method:'GET',headers:{"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"},redirect:'follow'});const finalUrl=response.url;videoCache.set(videoId,{url:finalUrl,expiry:now+60000});res.type('text/plain').send(finalUrl);}catch(error){console.error('Error:',error);res.status(500).send('Internal Server Error');}});
 app.get('/scratch-edu/:id', async (req, res) => {
   const id = req.params.id;
